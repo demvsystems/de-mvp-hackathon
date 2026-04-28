@@ -6,9 +6,17 @@ import {
 } from '@repo/messaging';
 import { createEmbedder, type Embedder } from './client';
 
-const embedder: Embedder = createEmbedder();
-const MODEL_VERSION = `${embedder.modelTag}:body-only:v1`;
 const MAX_CHARS = Number(process.env['EMBEDDING_MAX_CHARS'] ?? 24000);
+
+let cached: { embedder: Embedder; modelVersion: string } | null = null;
+
+function get(): { embedder: Embedder; modelVersion: string } {
+  if (!cached) {
+    const embedder = createEmbedder();
+    cached = { embedder, modelVersion: `${embedder.modelTag}:body-only:v1` };
+  }
+  return cached;
+}
 
 export async function embedRecordBodyOnly(
   payload: RecordPayload,
@@ -17,6 +25,7 @@ export async function embedRecordBodyOnly(
   const text = [payload.title, payload.body].filter((s): s is string => Boolean(s)).join('\n\n');
   if (text.length === 0) return;
 
+  const { embedder, modelVersion } = get();
   const truncated = text.slice(0, MAX_CHARS);
   const vector = await embedder.embed(truncated);
   const generatedAt = new Date().toISOString();
@@ -24,12 +33,12 @@ export async function embedRecordBodyOnly(
   await publish(EmbeddingCreated, {
     source: 'embedder:v1',
     occurred_at: generatedAt,
-    subject_id: `embedding:${payload.id}:0:${MODEL_VERSION}`,
+    subject_id: `embedding:${payload.id}:0:${modelVersion}`,
     payload: {
       record_id: payload.id,
       chunk_idx: 0,
       chunk_text: truncated,
-      model_version: MODEL_VERSION,
+      model_version: modelVersion,
       vector,
       generated_at: generatedAt,
     },

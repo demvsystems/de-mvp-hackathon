@@ -1,13 +1,12 @@
 import {
-  closeConnection,
-  createSubscriber,
   RecordObserved,
   RecordUpdated,
+  type ConsumerOptions,
   type MessageContext,
   type RecordPayload,
+  type Subscriber,
 } from '@repo/messaging';
 import { embedRecordBodyOnly } from './embed';
-import { EMBEDDER_CONSUMER, provisionEmbedder } from './provision';
 
 const SKIP_TYPES = new Set(['channel', 'repo', 'project', 'database', 'space', 'user']);
 
@@ -29,30 +28,18 @@ async function dispatch(payload: RecordPayload, ctx: MessageContext, kind: strin
   trace(ctx, kind);
 }
 
-async function main(): Promise<void> {
-  await provisionEmbedder();
-
-  const sub = createSubscriber({ consumer: EMBEDDER_CONSUMER });
-
-  sub
-    .on(RecordObserved, (payload, ctx) => dispatch(payload, ctx, 'record.observed'))
-    .on(RecordUpdated, (payload, ctx) => dispatch(payload, ctx, 'record.updated'));
-
-  const shutdown = (signal: string): void => {
-    console.log(`[embedder] received ${signal}, draining`);
-    void sub
-      .stop()
-      .then(() => closeConnection())
-      .finally(() => process.exit(0));
-  };
-  process.once('SIGINT', () => shutdown('SIGINT'));
-  process.once('SIGTERM', () => shutdown('SIGTERM'));
-
-  console.log(`[embedder] starting consumer "${EMBEDDER_CONSUMER}"`);
-  await sub.start();
-}
-
-main().catch((err: unknown) => {
-  console.error(err);
-  process.exit(1);
-});
+export const embedderModule: {
+  consumer: ConsumerOptions;
+  register: (sub: Subscriber) => void;
+} = {
+  consumer: {
+    durable_name: 'embedder',
+    filter_subject: 'events.record.>',
+    deliver_policy: 'all',
+  },
+  register(sub) {
+    sub
+      .on(RecordObserved, (p, ctx) => dispatch(p, ctx, 'record.observed'))
+      .on(RecordUpdated, (p, ctx) => dispatch(p, ctx, 'record.updated'));
+  },
+};

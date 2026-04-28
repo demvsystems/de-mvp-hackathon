@@ -12,9 +12,7 @@
     "lint": "echo 'no lint'",
     "typecheck": "tsc --noEmit",
     "test": "echo 'no tests' && exit 0",
-    "build": "echo 'no build'",
-    "start": "tsx src/index.ts",
-    "provision": "tsx src/provision.ts"
+    "build": "echo 'no build'"
   },
   "dependencies": {
     "@repo/db": "workspace:*",
@@ -22,7 +20,6 @@
   },
   "devDependencies": {
     "@types/node": "^20",
-    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }
