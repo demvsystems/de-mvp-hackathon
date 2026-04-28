@@ -61,25 +61,24 @@ Open <http://localhost:3000>.
 | `pnpm db:migrate`                                | apply migrations                      |
 | `pnpm db:studio`                                 | Drizzle Studio (DB GUI)               |
 
-### Event-System (Connectors + Materializer)
+### Event-System (Backend = Connectors + Embedder + Materializer + Reviewer)
 
 Lokale Infra hochfahren:
 
 ```bash
 docker-compose up -d                  # Postgres + NATS JetStream
-pnpm worker:materializer:provision    # Stream "EVENTS" + Consumer anlegen
-pnpm worker:materializer              # Materializer-Worker starten (Stub-Handler)
+pnpm backend                          # provisioniert Stream/Consumer und startet alle Worker
 ```
 
-Connectors gegen die Pilot-Snapshots in `apps/playground/Dummyfiles/` laufen lassen:
+Worker-Auswahl per `--workers`:
 
-| Script                                                      | Purpose                                  |
-| ----------------------------------------------------------- | ---------------------------------------- |
-| `pnpm connectors`                                           | alle Sources, JSON auf stdout (legacy)   |
-| `pnpm connectors --watch`                                   | dito, watcht das data-dir                |
-| `pnpm connectors:slack` / `:jira` / `:intercom` / `:upvoty` | eine Source, Preview oder Publish        |
-| `pnpm worker:materializer`                                  | NATS-Subscriber starten                  |
-| `pnpm worker:materializer:provision`                        | Stream + Consumer in NATS provisionieren |
+| Script                                                      | Purpose                                                 |
+| ----------------------------------------------------------- | ------------------------------------------------------- |
+| `pnpm backend`                                              | alle Worker (connectors,embedder,materializer,reviewer) |
+| `pnpm backend --workers connectors --watch`                 | nur Connectors, watcht das data-dir                     |
+| `pnpm backend --workers embedder,materializer`              | nur Subscriber-Worker (kein Replay)                     |
+| `pnpm backend --source slack`                               | Connectors auf eine Source einschränken                 |
+| `pnpm connectors:slack` / `:jira` / `:intercom` / `:upvoty` | Single-Source-CLI, Preview oder Publish                 |
 
 **Connector-CLI-Flags** (gilt für `pnpm connectors:<source>`):
 

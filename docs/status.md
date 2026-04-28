@@ -230,7 +230,7 @@ Each lives at `packages/eval/src/criteria/<name>.ts` and currently returns `0` u
 
 **Static prompt fallback drift**
 
-- `apps/llm-reviewer/src/prompt.ts:SYSTEM_PROMPT_FALLBACK` is a hand-maintained mirror of `prompts/reviewer-system.md`. They will drift unless we either (a) inline-load the .md at build time, or (b) accept the fallback being slightly stale. Document the rule or wire a build step.
+- `packages/agent/src/reviewer/prompt.ts:SYSTEM_PROMPT_FALLBACK` is a hand-maintained mirror of `prompts/reviewer-system.md`. They will drift unless we either (a) inline-load the .md at build time, or (b) accept the fallback being slightly stale. Document the rule or wire a build step.
 
 **Eval seed isolation**
 

@@ -38,7 +38,7 @@ pnpm prompts:sync                                          # uploads new version
 npx langfuse-cli api prompts get --name reviewer.system    # confirm the latest version is what you committed
 ```
 
-The reviewer worker caches prompts; restart it (`pnpm worker:llm-reviewer` if running, or just bounce the dev process) to pick up the new version.
+The reviewer worker caches prompts; restart it (`pnpm backend` or just bounce the dev process) to pick up the new version.
 
 ### 2. A/B a candidate against production
 
@@ -132,7 +132,7 @@ The trace shows: input, output (assessment + tool_calls), per-criterion scores, 
 
 ### 7. Audit which prompt version a past run used
 
-Production traces include `prompt_name` / `prompt_version` / `prompt_label` in their metadata (logged by the reviewer at `apps/llm-reviewer/src/runner.ts`). Filter traces by metadata to find every run that used a specific version:
+Production traces include `prompt_name` / `prompt_version` / `prompt_label` in their metadata (logged by the reviewer at `packages/agent/src/reviewer/module.ts`). Filter traces by metadata to find every run that used a specific version:
 
 ```sh
 npx langfuse-cli api traces list \
