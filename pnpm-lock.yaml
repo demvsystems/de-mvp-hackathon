@@ -7,19 +7,37 @@ settings:
 importers:
 
   .:
+    devDependencies:
+      husky:
+        specifier: ^9.1.7
+        version: 9.1.7
+      lint-staged:
+        specifier: ^16.4.0
+        version: 16.4.0
+      prettier:
+        specifier: ^3.8.3
+        version: 3.8.3
+      prettier-plugin-tailwindcss:
+        specifier: ^0.7.3
+        version: 0.7.3(prettier@3.8.3)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  apps/web:
     dependencies:
       '@base-ui/react':
         specifier: ^1.4.1
         version: 1.4.1(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@repo/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      drizzle-orm:
-        specifier: ^0.45.2
-        version: 0.45.2(postgres@3.4.9)
       lucide-react:
         specifier: ^1.11.0
         version: 1.11.0(react@19.2.4)
@@ -29,9 +47,6 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      postgres:
-        specifier: ^3.4.9
-        version: 3.4.9
       react:
         specifier: 19.2.4
         version: 19.2.4
@@ -69,39 +84,59 @@ importers:
       '@vitest/ui':
         specifier: ^4.1.5
         version: 4.1.5(vitest@4.1.5)
-      drizzle-kit:
-        specifier: ^0.31.10
-        version: 0.31.10
       eslint:
         specifier: ^9
         version: 9.39.4(jiti@2.6.1)
       eslint-config-next:
         specifier: 16.2.4
         version: 16.2.4(@typescript-eslint/parser@8.59.0(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
-      husky:
-        specifier: ^9.1.7
-        version: 9.1.7
-      lint-staged:
-        specifier: ^16.4.0
-        version: 16.4.0
-      prettier:
-        specifier: ^3.8.3
-        version: 3.8.3
-      prettier-plugin-tailwindcss:
-        specifier: ^0.7.3
-        version: 0.7.3(prettier@3.8.3)
       tailwindcss:
         specifier: ^4
         version: 4.2.4
-      tsx:
-        specifier: ^4.21.0
-        version: 4.21.0
       typescript:
         specifier: ^5
         version: 5.9.3
       vitest:
         specifier: ^4.1.5
         version: 4.1.5(@types/node@20.19.39)(@vitest/ui@4.1.5)(msw@2.13.6(@types/node@20.19.39)(typescript@5.9.3))(vite@8.0.10(@types/node@20.19.39)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
+
+  apps/worker:
+    dependencies:
+      '@repo/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.39
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/db:
+    dependencies:
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(postgres@3.4.9)
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.39
+      drizzle-kit:
+        specifier: ^0.31.10
+        version: 0.31.10
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5
+        version: 5.9.3
 
 packages:
 

@@ -1,12 +1,12 @@
 node_modules/
-.next/
+**/.next/
 .husky/_/
-public/
+**/public/
 pnpm-lock.yaml
 package-lock.json
 yarn.lock
-next-env.d.ts
-tsconfig.tsbuildinfo
-db/migrations/
+**/next-env.d.ts
+**/tsconfig.tsbuildinfo
+packages/db/migrations/
 *.min.js
 *.min.css

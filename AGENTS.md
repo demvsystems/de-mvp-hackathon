@@ -10,22 +10,34 @@ Telegraph style. Root rules.
 
 ## Map
 
-- `app/` — Next pages + route handlers.
-- `components/ui/` — shadcn primitives.
-- `lib/` — shared utilities.
-- `db/` — Drizzle schema + client.
+pnpm workspace. Packages:
+
+- `apps/web/` — Next app.
+  - `app/` — pages + route handlers.
+  - `components/ui/` — shadcn primitives.
+  - `lib/` — web-local utilities.
+- `apps/worker/` — long-running Node service (`tsx`).
+- `packages/db/` — Drizzle schema + client (`@repo/db`, consumed via workspace).
+
+Workspace conventions:
+
+- Hoist `@types/*` and `*eslint*` to root via `.npmrc` so transitive React/JSX types resolve correctly inside dep packages.
+- Cross-package import: `import { db } from '@repo/db'`.
 
 ## Commands
 
-- `pnpm dev` / `build` / `lint` / `typecheck` / `test`.
+Run from repo root unless noted.
+
+- `pnpm dev` — Next app. `pnpm dev:worker` — worker.
+- `pnpm build` / `lint` / `typecheck` / `test` — fan out via `pnpm -r`.
 - `pnpm format` / `format:check`.
-- `pnpm db:push` / `db:generate` / `db:migrate` / `db:studio`.
+- `pnpm db:push` / `db:generate` / `db:migrate` / `db:studio` — runs in `packages/db`.
 - `docker-compose up -d` — local Postgres.
 
 ## Gates
 
-- Pre-commit (husky + lint-staged): prettier + eslint on staged files. Don't bypass with `--no-verify`.
-- Pre-push (husky): `pnpm typecheck && pnpm lint && pnpm test && pnpm build`.
+- Pre-commit (husky + lint-staged): prettier on staged files. Don't bypass with `--no-verify`.
+- Pre-push (husky): `pnpm typecheck && pnpm lint && pnpm test && pnpm build` (all fan out to every workspace package).
 - CI required: `lint`, `typecheck`, `build`.
 
 ## Code
