@@ -11,7 +11,8 @@
   "scripts": {
     "lint": "echo 'no lint'",
     "typecheck": "tsc --noEmit",
-    "test": "echo 'no tests' && exit 0",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "build": "echo 'no build'"
   },
   "dependencies": {
@@ -20,6 +21,8 @@
   },
   "devDependencies": {
     "@types/node": "^20",
-    "typescript": "^5"
+    "postgres": "^3.4.9",
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   }
 }
