@@ -92,6 +92,21 @@ start_service() {
   wait_for_service "$service_name"
 }
 
+# Schema uses pgvector (vector(1024) columns + HNSW indexes). The extension
+# ships with the pgvector/pgvector image but isn't enabled per-database by
+# default. Resolves the container by port so it works whether the project's
+# `postgres` service is running or another pgvector container squats the port.
+ensure_pgvector() {
+  port="$1"
+  container="$(container_for_port "$port")"
+  if [ -z "$container" ]; then
+    echo "No postgres container found on port $port." >&2
+    exit 1
+  fi
+  docker exec "$container" psql -U postgres -c "CREATE EXTENSION IF NOT EXISTS vector;" >/dev/null
+  echo "pgvector extension enabled in $container."
+}
+
 if [ ! -f .env ]; then
   cp .env.example .env
   echo "Created .env from .env.example."
@@ -107,6 +122,8 @@ CI=true pnpm install --no-frozen-lockfile
 
 start_service postgres 54329
 start_service nats 4222
+
+ensure_pgvector 54329
 
 pnpm db:push
 
