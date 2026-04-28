@@ -1,1 +1,15 @@
-pnpm exec lint-staged
+#!/usr/bin/env sh
+
+if command -v pnpm >/dev/null 2>&1; then
+  pnpm exec lint-staged
+  exit $?
+fi
+
+if command -v corepack >/dev/null 2>&1; then
+  corepack pnpm exec lint-staged
+  exit $?
+fi
+
+echo "husky pre-commit: neither pnpm nor corepack is available in PATH" >&2
+echo "Install pnpm or enable corepack, then retry the commit." >&2
+exit 127
