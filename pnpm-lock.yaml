@@ -105,7 +105,7 @@ importers:
         version: 9.39.4(jiti@2.6.1)
       eslint-config-next:
         specifier: 16.2.4
-        version: 16.2.4(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+        version: 16.2.4(@typescript-eslint/parser@8.59.0(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
       tailwindcss:
         specifier: ^4
         version: 4.2.4
@@ -181,7 +181,7 @@ importers:
         version: 9.39.4(jiti@2.6.1)
       eslint-config-next:
         specifier: 16.2.4
-        version: 16.2.4(@typescript-eslint/parser@8.59.0(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+        version: 16.2.4(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
       tailwindcss:
         specifier: ^4
         version: 4.2.4
@@ -220,6 +220,25 @@ importers:
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/materializer:
+    dependencies:
+      '@repo/db':
+        specifier: workspace:*
+        version: link:../db
+      '@repo/messaging':
+        specifier: workspace:*
+        version: link:../messaging
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.39
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
