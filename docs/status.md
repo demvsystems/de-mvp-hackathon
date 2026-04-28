@@ -8,20 +8,20 @@ Last updated: 2026-04-28
 
 Tier vocabulary: None → Bronze → Silver → Gold → Platinum. Current is a self-estimate — the eval pipeline is what makes it real once it scores live runs.
 
-| #   | Dimension                | Target   | Current | Notes                                                               |
-| --- | ------------------------ | -------- | ------- | ------------------------------------------------------------------- |
-| 1   | Evaluation Rubric        | Gold     | Bronze  | rubric.yaml + 1/7 criteria implemented                              |
-| 2   | Golden Dataset           | Gold     | Bronze  | 3 fixtures vs 20+ target; no auto-grow                              |
-| 3   | Eval Run                 | Platinum | None    | no CI gate, runner only invoked manually                            |
-| 4   | Online Evaluation        | Gold     | None    | no sampler, no drift detection                                      |
-| 5   | Observability & Tracing  | Platinum | Silver  | Langfuse v5 traces agent calls + evals; no clustering               |
-| 6   | In-Product Feedback      | Platinum | None    | no scoreboard UI yet, no widgets                                    |
-| 7   | Cost Monitoring          | Gold     | None    | no per-call cost capture, no routing, no baseline benchmark         |
-| 8   | Prompt Management        | Gold     | Bronze  | Langfuse prompt + label + version on metadata; no A/B, no eval gate |
-| 9   | Structured Outputs       | Gold     | Silver  | Zod everywhere + retry-repair; schema not externally versioned      |
-| 10  | Tool Use                 | Platinum | Silver  | 4 tools, parallel possible; no selection eval, no dynamic loading   |
-| 11  | Cross-System Integration | Gold     | Bronze  | Slack connector only; 4 production systems missing                  |
-| 12  | Guardrails               | Gold     | None    | only Zod schema enforcement; no PII/jailbreak/injection layers      |
+| #   | Dimension                | Target   | Current | Notes                                                                      |
+| --- | ------------------------ | -------- | ------- | -------------------------------------------------------------------------- |
+| 1   | Evaluation Rubric        | Gold     | Bronze  | rubric.yaml + 1/7 criteria implemented                                     |
+| 2   | Golden Dataset           | Gold     | Bronze  | 3 fixtures vs 20+ target; no auto-grow                                     |
+| 3   | Eval Run                 | Platinum | None    | no CI gate, runner only invoked manually                                   |
+| 4   | Online Evaluation        | Gold     | None    | no sampler, no drift detection                                             |
+| 5   | Observability & Tracing  | Platinum | Silver  | Langfuse v5 traces agent calls + evals; no clustering                      |
+| 6   | In-Product Feedback      | Platinum | None    | no scoreboard UI yet, no widgets                                           |
+| 7   | Cost Monitoring          | Gold     | Bronze  | Langfuse auto-cost from model+usage on every call; no routing, no baseline |
+| 8   | Prompt Management        | Gold     | Bronze  | Prompt synced to Langfuse, traces link to registry; no A/B, no eval gate   |
+| 9   | Structured Outputs       | Gold     | Silver  | Zod everywhere + retry-repair; schema not externally versioned             |
+| 10  | Tool Use                 | Platinum | Silver  | 4 tools, parallel possible; no selection eval, no dynamic loading          |
+| 11  | Cross-System Integration | Gold     | Bronze  | Slack connector only; 4 production systems missing                         |
+| 12  | Guardrails               | Gold     | None    | only Zod schema enforcement; no PII/jailbreak/injection layers             |
 
 ## Per-dimension status
 
@@ -131,14 +131,16 @@ Each lives at `packages/eval/src/criteria/<name>.ts` and currently returns `0` u
 
 **Shipped**
 
-- Nothing yet.
+- Per-call cost in Langfuse (auto-derived from `model` + `usageDetails`; visible in Cost ($) column).
+- Token usage broken down: input / output / cache_creation / cache_read (`runtime.ts:buildUsageDetails`).
+- Anthropic prompt-cache enabled (`cache_control: ephemeral` on system blocks + last tool def).
 
 **Remaining for Gold**
 
-- [ ] Cost per `messages.create` captured in Langfuse (model, feature, cohort tags)
 - [ ] Haiku classifier picks tools/records, Opus synthesizes — measurable savings
 - [ ] Day-1 baseline benchmark (Opus-only run on golden dataset, captured cost)
-- [ ] Anthropic prompt-cache check (already on for system prompt, verify cache-hit rate logs)
+- [ ] Cohort tags (feature, env) on every call so cost dashboards group cleanly
+- [ ] Verify cache-hit rate is non-zero in production traces
 - [ ] Cost budgets per environment + Langfuse alerting
 
 ### 8. Prompt Management — Gold
@@ -147,9 +149,12 @@ Each lives at `packages/eval/src/criteria/<name>.ts` and currently returns `0` u
 
 - `prompts/reviewer-system.md` is the canonical source, version-controlled in git
 - `prompts/meta.yaml` manifest + `pnpm prompts:sync` pushes to Langfuse
+- `reviewer.system` exists in Langfuse with `production` label (verified live)
 - `agent-core` resolves `{ name, label, fallback }` via Langfuse SDK at runtime
+- `messages.create` generation is linked to the prompt registry — `Prompt Name` column populates in Langfuse traces (`runtime.ts:507`)
 - `prompt.version` / `prompt.label` / `prompt.from_fallback` exposed on `AgentRunMetadata`
 - Reviewer points at `reviewer.system @ production`; `LLM_REVIEWER_PROMPT_LABEL` env var overrides for staging
+- CI auto-syncs prompts on push to main when `prompts/**` changed (no manual step required)
 
 **Remaining for Gold**
 
