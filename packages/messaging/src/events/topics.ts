@@ -3,7 +3,7 @@ import { defineEvent } from '../event';
 
 export const TopicCreatedPayload = z.object({
   id: z.string(),
-  status: z.literal('proposed'),
+  status: z.literal('active'),
   discovered_by: z.string(),
   initial_centroid_summary: z.object({
     sample_record_ids: z.array(z.string()),
@@ -13,12 +13,12 @@ export const TopicCreatedPayload = z.object({
 });
 export type TopicCreatedPayload = z.infer<typeof TopicCreatedPayload>;
 
-export const TopicActivatedPayload = z.object({
+export const TopicUpdatedPayload = z.object({
   id: z.string(),
   label: z.string().nullable(),
   description: z.string().nullable(),
 });
-export type TopicActivatedPayload = z.infer<typeof TopicActivatedPayload>;
+export type TopicUpdatedPayload = z.infer<typeof TopicUpdatedPayload>;
 
 export const TopicArchivedPayload = z.object({
   id: z.string(),
@@ -39,11 +39,11 @@ export const TopicCreated = defineEvent({
   payload: TopicCreatedPayload,
 });
 
-export const TopicActivated = defineEvent({
-  event_type: 'topic.activated',
-  subject_template: 'events.topic.activated',
+export const TopicUpdated = defineEvent({
+  event_type: 'topic.updated',
+  subject_template: 'events.topic.updated',
   subject_kind: 'topic',
-  payload: TopicActivatedPayload,
+  payload: TopicUpdatedPayload,
 });
 
 export const TopicArchived = defineEvent({
