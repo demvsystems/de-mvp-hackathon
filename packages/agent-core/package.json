@@ -16,7 +16,10 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
-    "langfuse": "^3.38.3",
+    "@langfuse/client": "5.2.0",
+    "@langfuse/otel": "5.2.0",
+    "@langfuse/tracing": "5.2.0",
+    "@opentelemetry/sdk-trace-base": "^2.7.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

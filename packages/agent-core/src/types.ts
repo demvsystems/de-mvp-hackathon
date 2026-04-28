@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import type { Langfuse } from 'langfuse';
+import type { LangfuseClient } from '@langfuse/client';
 import type { z } from 'zod';
 
 export interface ToolSpec<TInput = unknown, TOutput = unknown> {
@@ -49,7 +49,7 @@ export interface AgentConfig<TInput, TOutput> {
   readonly temperature?: number;
   readonly client?: Anthropic;
   readonly toolResultByteLimit?: number;
-  readonly langfuse?: Langfuse;
+  readonly langfuse?: LangfuseClient | null;
   readonly observability?: AgentObservabilityConfig<TInput, TOutput>;
 }
 

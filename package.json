@@ -48,7 +48,6 @@
     "@langfuse/otel": "5.2.0",
     "@langfuse/tracing": "5.2.0",
     "husky": "^9.1.7",
-    "langfuse": "^3.38.3",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.7.3",
