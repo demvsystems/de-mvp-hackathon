@@ -1,7 +1,6 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: starter-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -18,7 +17,6 @@ services:
 
   nats:
     image: nats:2.12-alpine
-    container_name: starter-nats
     command: ['-c', '/etc/nats/nats-server.conf']
     ports:
       - '127.0.0.1:4222:4222'

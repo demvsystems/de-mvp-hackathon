@@ -10,6 +10,7 @@
     ]
   },
   "scripts": {
+    "init:dev": "scripts/init.sh",
     "dev": "pnpm -r --parallel --filter \"./apps/*\" dev",
     "start": "pnpm -r --parallel --filter \"./apps/*\" start",
     "build": "pnpm -r --filter \"./apps/*\" --filter \"./packages/*\" build",

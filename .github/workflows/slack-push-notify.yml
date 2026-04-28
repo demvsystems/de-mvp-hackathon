@@ -9,17 +9,15 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     steps:
-      - name: Post Slack thread reply
+      - name: Post Slack channel message
         env:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
           SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
-          SLACK_THREAD_TS: ${{ secrets.SLACK_THREAD_TS }}
         run: |
           set -euo pipefail
 
           : "${SLACK_TOKEN:?Set the SLACK_TOKEN repository secret.}"
           : "${SLACK_CHANNEL_ID:?Set the SLACK_CHANNEL_ID repository secret.}"
-          : "${SLACK_THREAD_TS:?Set the SLACK_THREAD_TS repository secret.}"
 
           repo="${GITHUB_REPOSITORY}"
           branch="${GITHUB_REF_NAME}"
@@ -47,11 +45,9 @@ jobs:
           payload="$(
             jq -n \
               --arg channel "$SLACK_CHANNEL_ID" \
-              --arg thread_ts "$SLACK_THREAD_TS" \
               --arg text "$text" \
               '{
                 channel: $channel,
-                thread_ts: $thread_ts,
                 text: $text,
                 unfurl_links: false,
                 unfurl_media: false

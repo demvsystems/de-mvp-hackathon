@@ -34,14 +34,8 @@ Verify: `node -v` (v24.x), `pnpm -v` (10.x), `docker -v`.
 ### Setup
 
 ```bash
-# Install deps
-pnpm install
-
-# Copy env vars and fill in values
-cp .env.example .env
-
-# Start local Postgres
-docker-compose up -d
+# Install deps, create .env, start Docker services, and push the DB schema
+pnpm init:dev
 
 # Run dev server
 pnpm dev
@@ -53,6 +47,7 @@ Open <http://localhost:3000>.
 
 | Script                                           | Purpose                               |
 | ------------------------------------------------ | ------------------------------------- |
+| `pnpm init:dev`                                  | local setup: deps, env, Docker, DB    |
 | `pnpm dev`                                       | Next dev server (Turbopack)           |
 | `pnpm build`                                     | production build                      |
 | `pnpm lint`                                      | ESLint                                |
