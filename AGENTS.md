@@ -52,4 +52,4 @@ Run from repo root unless noted.
 ## Git
 
 - Small commits. Conventional-ish messages. Don't bypass hooks.
-- Branch off `main`. PR before merge. CI green.
+- Work on `main`. Push direct after pre-push gate is green.
