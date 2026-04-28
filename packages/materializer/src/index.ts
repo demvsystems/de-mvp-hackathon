@@ -6,30 +6,36 @@ import {
   RecordObserved,
   RecordTombstoned,
   RecordUpdated,
-  TopicActivated,
   TopicArchived,
   TopicAssessmentCreated,
   TopicCreated,
   TopicSuperseded,
+  TopicUpdated,
   type MessageContext,
 } from '@repo/messaging';
+import {
+  handleAssessmentCreated,
+  handleEdgeObserved,
+  handleRecordDeleted,
+  handleRecordObserved,
+  handleTopicArchived,
+  handleTopicCreated,
+  handleTopicSuperseded,
+  handleTopicUpdated,
+} from './handlers';
 import { MATERIALIZER_CONSUMER, provisionMaterializer } from './provision';
 
-const stub =
-  (kind: string) =>
-  async (_payload: unknown, ctx: MessageContext): Promise<void> => {
-    console.log(
-      JSON.stringify({
-        msg: 'matz routed',
-        kind,
-        event_id: ctx.envelope.event_id,
-        event_type: ctx.envelope.event_type,
-        subject_id: ctx.envelope.subject_id,
-        seq: ctx.seq,
-      }),
-    );
-    // TODO step 2: replace stubs with real handlers writing to @repo/db.
-  };
+function trace(ctx: MessageContext, kind: string): void {
+  console.log(
+    JSON.stringify({
+      msg: 'matz applied',
+      kind,
+      event_id: ctx.envelope.event_id,
+      subject_id: ctx.envelope.subject_id,
+      seq: ctx.seq,
+    }),
+  );
+}
 
 async function main(): Promise<void> {
   await provisionMaterializer();
@@ -37,16 +43,48 @@ async function main(): Promise<void> {
   const sub = createSubscriber({ consumer: MATERIALIZER_CONSUMER });
 
   sub
-    .on(RecordObserved, stub('record.observed'))
-    .on(RecordUpdated, stub('record.updated'))
-    .on(RecordDeleted, stub('record.deleted'))
-    .on(RecordTombstoned, stub('record.tombstoned'))
-    .on(EdgeObserved, stub('edge.observed'))
-    .on(TopicCreated, stub('topic.created'))
-    .on(TopicActivated, stub('topic.activated'))
-    .on(TopicArchived, stub('topic.archived'))
-    .on(TopicSuperseded, stub('topic.superseded'))
-    .on(TopicAssessmentCreated, stub('topic.assessment.created'));
+    .on(RecordObserved, async (payload, ctx) => {
+      await handleRecordObserved(payload, ctx);
+      trace(ctx, 'record.observed');
+    })
+    .on(RecordUpdated, async (payload, ctx) => {
+      await handleRecordObserved(payload, ctx);
+      trace(ctx, 'record.updated');
+    })
+    .on(RecordDeleted, async (payload, ctx) => {
+      await handleRecordDeleted(payload, ctx);
+      trace(ctx, 'record.deleted');
+    })
+    .on(RecordTombstoned, async (payload, ctx) => {
+      // Tombstone semantics match deletion for the materializer's read-model:
+      // soft-delete the record and invalidate its open edges.
+      await handleRecordDeleted(payload, ctx);
+      trace(ctx, 'record.tombstoned');
+    })
+    .on(EdgeObserved, async (payload, ctx) => {
+      await handleEdgeObserved(payload, ctx);
+      trace(ctx, 'edge.observed');
+    })
+    .on(TopicCreated, async (payload, ctx) => {
+      await handleTopicCreated(payload, ctx);
+      trace(ctx, 'topic.created');
+    })
+    .on(TopicUpdated, async (payload, ctx) => {
+      await handleTopicUpdated(payload);
+      trace(ctx, 'topic.updated');
+    })
+    .on(TopicArchived, async (payload, ctx) => {
+      await handleTopicArchived(payload, ctx);
+      trace(ctx, 'topic.archived');
+    })
+    .on(TopicSuperseded, async (payload, ctx) => {
+      await handleTopicSuperseded(payload);
+      trace(ctx, 'topic.superseded');
+    })
+    .on(TopicAssessmentCreated, async (payload, ctx) => {
+      await handleAssessmentCreated(payload);
+      trace(ctx, 'topic.assessment.created');
+    });
 
   const shutdown = (signal: string): void => {
     console.log(`[materializer] received ${signal}, draining`);
