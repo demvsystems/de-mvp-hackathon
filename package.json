@@ -30,6 +30,8 @@
     "connectors:upvoty": "pnpm --filter @repo/connectors run:upvoty",
     "worker:materializer": "pnpm --filter @repo/materializer start",
     "worker:materializer:provision": "pnpm --filter @repo/materializer provision",
+    "worker:embedder": "pnpm --filter @repo/embedder start",
+    "worker:embedder:provision": "pnpm --filter @repo/embedder provision",
     "prepare": "husky"
   },
   "lint-staged": {

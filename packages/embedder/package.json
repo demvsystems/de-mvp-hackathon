@@ -1,0 +1,28 @@
+{
+  "name": "@repo/embedder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "echo 'no lint'",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'no tests' && exit 0",
+    "build": "echo 'no build'",
+    "start": "tsx src/index.ts",
+    "provision": "tsx src/provision.ts"
+  },
+  "dependencies": {
+    "@repo/messaging": "workspace:*",
+    "openai": "^4.79.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  }
+}
