@@ -1,0 +1,43 @@
+{
+  "boards": [
+    {
+      "id": "board_marketing",
+      "name": "board_marketing"
+    }
+  ],
+  "users": [
+    {
+      "id": "u_831",
+      "name": "Makler Community"
+    },
+    {
+      "id": "u_933",
+      "name": "u_933"
+    },
+    {
+      "id": "u_932",
+      "name": "u_932"
+    }
+  ],
+  "posts": [
+    {
+      "id": "post_mva_2001",
+      "title": "MVA als Top-Differenzierungsmerkmal",
+      "body": "Bitte MVA sichtbarer positionieren und Datenschutz-FAQ ausbauen.",
+      "status": "open",
+      "board_id": "board_marketing",
+      "author_id": "u_831",
+      "created_at": "2026-03-13T08:30:00.000Z",
+      "vote_count": 1,
+      "voter_ids": ["u_932"],
+      "comments": [
+        {
+          "id": "comment_mva_7001",
+          "body": "Positiv insgesamt, aber Datenschutz muss klar erklaert sein.",
+          "created_at": "2026-03-13T09:00:00.000Z",
+          "author_id": "u_933"
+        }
+      ]
+    }
+  ]
+}

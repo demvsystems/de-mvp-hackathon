@@ -1,0 +1,34 @@
+{
+  "channel": {
+    "id": "C111ONB01",
+    "name": "onboarding-friction",
+    "display_name": "#onboarding-friction",
+    "type": "public_channel",
+    "topic": "Signale zu fruehen Einfuehrungshuerden",
+    "purpose": "Stille Rueckzuege frueh erkennen"
+  },
+  "participants": [
+    {
+      "id": "U040",
+      "display_name": "CS Lead",
+      "real_name": "CS Lead",
+      "role_hint": "support"
+    }
+  ],
+  "content": [
+    {
+      "type": "chat_message",
+      "id": "msg_onb_001",
+      "slack_ts": "1777371010.000100",
+      "datetime": "2026-03-22T09:03:30Z",
+      "author": {
+        "id": "U040",
+        "display_name": "CS Lead"
+      },
+      "text": "Mehrere Stuck-Deals nach Onboarding, obwohl kaum direkte Beschwerden eingehen.",
+      "mentions": [],
+      "reactions": [],
+      "thread": null
+    }
+  ]
+}

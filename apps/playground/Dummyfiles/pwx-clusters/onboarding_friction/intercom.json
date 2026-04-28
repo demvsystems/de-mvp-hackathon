@@ -1,0 +1,39 @@
+{
+  "conversations": [
+    {
+      "id": "conv_onb_9001",
+      "created_at": "2026-03-20T10:10:00.000Z",
+      "updated_at": "2026-03-20T10:10:00.000Z",
+      "state": "open",
+      "contact": {
+        "type": "user",
+        "id": "makler_901",
+        "name": "Makler I",
+        "email": "makler.i@example.com"
+      },
+      "tags": ["onboarding", "vertragsimport", "hilfe"],
+      "parts": [
+        {
+          "id": "conv_onb_9001_p1",
+          "part_type": "comment",
+          "body": "Ich finde mich im Vertragsimport nicht zurecht und bekomme unklare Fehlermeldungen.",
+          "created_at": "2026-03-20T10:10:00.000Z",
+          "author": {
+            "type": "user",
+            "id": "makler_901",
+            "name": "Makler I",
+            "email": "makler.i@example.com"
+          }
+        }
+      ]
+    }
+  ],
+  "contacts": [
+    {
+      "id": "makler_901",
+      "name": "Makler I",
+      "email": "makler.i@example.com"
+    }
+  ],
+  "agents": []
+}

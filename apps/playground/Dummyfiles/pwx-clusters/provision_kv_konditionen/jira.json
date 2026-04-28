@@ -1,0 +1,34 @@
+{
+  "source": {
+    "jiraSite": "demvsystems.atlassian.net",
+    "projectScope": {
+      "mode": "allowlist",
+      "projectKeys": ["DEMV"]
+    }
+  },
+  "projects": [
+    {
+      "id": "10010",
+      "key": "DEMV",
+      "name": "DE MVP Product",
+      "type": "software"
+    }
+  ],
+  "boards": [],
+  "activeSprints": [],
+  "issues": [
+    {
+      "key": "DEMV-5001",
+      "projectKey": "DEMV",
+      "type": "Task",
+      "status": "To Do",
+      "priority": "High",
+      "summary": "Sales Enablement fuer KV-Provisionseinwand standardisieren",
+      "descriptionText": "AO vs Pool Vergleich sauber einordnen, Direktvereinbarung standardisiert kommunizieren.",
+      "labels": ["sales_enablement", "provision", "kv"],
+      "components": ["Sales"],
+      "comments": [],
+      "attachments": []
+    }
+  ]
+}

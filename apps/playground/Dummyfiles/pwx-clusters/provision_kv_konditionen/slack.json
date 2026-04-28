@@ -1,0 +1,34 @@
+{
+  "channel": {
+    "id": "C111PROV01",
+    "name": "sales-objections",
+    "display_name": "#sales-objections",
+    "type": "public_channel",
+    "topic": "Einwandmuster im Vertrieb",
+    "purpose": "Verlorene Deals nach Einwandgrund strukturieren"
+  },
+  "participants": [
+    {
+      "id": "U020",
+      "display_name": "Roadshow Sales",
+      "real_name": "Roadshow Sales",
+      "role_hint": "support"
+    }
+  ],
+  "content": [
+    {
+      "type": "chat_message",
+      "id": "msg_pr_001",
+      "slack_ts": "1777369010.000100",
+      "datetime": "2026-03-05T09:03:30Z",
+      "author": {
+        "id": "U020",
+        "display_name": "Roadshow Sales"
+      },
+      "text": "Konditions-Einwand wiederholt sich. Wir brauchen ein einheitliches Argumentationsskript.",
+      "mentions": [],
+      "reactions": [],
+      "thread": null
+    }
+  ]
+}

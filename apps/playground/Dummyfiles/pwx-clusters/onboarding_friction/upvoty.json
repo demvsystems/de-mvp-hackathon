@@ -1,0 +1,43 @@
+{
+  "boards": [
+    {
+      "id": "board_onboarding",
+      "name": "board_onboarding"
+    }
+  ],
+  "users": [
+    {
+      "id": "u_841",
+      "name": "New User Group"
+    },
+    {
+      "id": "u_943",
+      "name": "u_943"
+    },
+    {
+      "id": "u_942",
+      "name": "u_942"
+    }
+  ],
+  "posts": [
+    {
+      "id": "post_onb_2001",
+      "title": "Onboarding-Hilfe zu Vertragsimport und Policenassistent aktualisieren",
+      "body": "Anleitungen passen nicht zur aktuellen Oberflaeche.",
+      "status": "open",
+      "board_id": "board_onboarding",
+      "author_id": "u_841",
+      "created_at": "2026-03-21T08:30:00.000Z",
+      "vote_count": 1,
+      "voter_ids": ["u_942"],
+      "comments": [
+        {
+          "id": "comment_onb_7001",
+          "body": "Erst nach drei Wochen produktiv. Bitte Onboarding frueher begleiten.",
+          "created_at": "2026-03-21T09:00:00.000Z",
+          "author_id": "u_943"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "boards": [
+    {
+      "id": "board_integrationen",
+      "name": "board_integrationen"
+    }
+  ],
+  "users": [
+    {
+      "id": "u_811",
+      "name": "IT Admin Community"
+    },
+    {
+      "id": "u_913",
+      "name": "u_913"
+    },
+    {
+      "id": "u_912",
+      "name": "u_912"
+    }
+  ],
+  "posts": [
+    {
+      "id": "post_ex_2001",
+      "title": "Exchange und Shared Mailbox Integration",
+      "body": "Fuer Bueros mit Team-Postfach ist das ein Muss.",
+      "status": "open",
+      "board_id": "board_integrationen",
+      "author_id": "u_811",
+      "created_at": "2026-01-12T08:30:00.000Z",
+      "vote_count": 1,
+      "voter_ids": ["u_912"],
+      "comments": [
+        {
+          "id": "comment_ex_7001",
+          "body": "Ohne Shared Mailbox kein Rollout im Team.",
+          "created_at": "2026-01-12T09:00:00.000Z",
+          "author_id": "u_913"
+        }
+      ]
+    }
+  ]
+}
