@@ -1,7 +1,7 @@
 export { defineEvent, type EventDefinition } from './event';
 export { EventEnvelope, SubjectKind } from './envelope';
 export { publish, type PublishInput, type PublishAck } from './publisher';
-export { createSubscriber, type MessageContext } from './subscriber';
+export { createSubscriber, Subscriber, type MessageContext } from './subscriber';
 export { closeConnection } from './connection';
 export {
   provisionStream,
