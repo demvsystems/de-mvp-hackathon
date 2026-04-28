@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { generatePreviewWithClaude } from './claude-generate-preview';
 import {
   formatIntercomResponse,
   formatJiraResponse,
@@ -127,9 +128,7 @@ function coerceSlackAiContent(
 
   channelOut['topic'] = ensureDummyText(channelTopicCandidate);
   channelOut['purpose'] = ensureDummyText(channelPurposeCandidate);
-  if (typeof channelOut['team_id'] === 'string' || typeof aiChannel?.['team_id'] === 'string') {
-    channelOut['team_id'] = asString(aiChannel?.['team_id']) ?? 'DE-MVP';
-  }
+  channelOut['team_id'] = asString(aiChannel?.['team_id']) ?? 'DE-MVP';
   out['channel'] = channelOut;
 
   const aiParticipants = Array.isArray(aiContent['participants']) ? aiContent['participants'] : [];
@@ -143,9 +142,7 @@ function coerceSlackAiContent(
       next['display_name'] = asString(aiParticipant?.['display_name'])!;
     if (asString(aiParticipant?.['real_name']))
       next['real_name'] = asString(aiParticipant?.['real_name'])!;
-    if ('team_id' in next || asString(aiParticipant?.['team_id'])) {
-      next['team_id'] = asString(aiParticipant?.['team_id']) ?? 'DE-MVP';
-    }
+    next['team_id'] = asString(aiParticipant?.['team_id']) ?? 'DE-MVP';
     return next;
   });
   out['participants'] = participantsOut;
@@ -174,9 +171,7 @@ function coerceSlackAiContent(
     if (asString(aiMessage?.['id'])) {
       next['id'] = asString(aiMessage?.['id'])!;
     }
-    if ('team_id' in next || asString(aiMessage?.['team_id'])) {
-      next['team_id'] = asString(aiMessage?.['team_id']) ?? 'DE-MVP';
-    }
+    next['team_id'] = asString(aiMessage?.['team_id']) ?? 'DE-MVP';
 
     if (Array.isArray(aiMessage?.['reactions'])) {
       next['reactions'] = aiMessage['reactions'];
@@ -204,9 +199,7 @@ function coerceSlackAiContent(
         msgIndex + replyIndex + 1,
         candidateReplyText,
       );
-      if ('team_id' in nextReply || asString(aiReply?.['team_id'])) {
-        nextReply['team_id'] = asString(aiReply?.['team_id']) ?? 'DE-MVP';
-      }
+      nextReply['team_id'] = asString(aiReply?.['team_id']) ?? 'DE-MVP';
       if (Array.isArray(aiReply?.['reactions'])) {
         nextReply['reactions'] = aiReply['reactions'];
       }
@@ -313,157 +306,70 @@ function buildFallbackPreview(
   return GeneratePreviewResponseSchema.parse(response);
 }
 
-const AiContentSchema = z.object({
-  content: z.record(z.string(), z.unknown()),
-});
-
-const AiPayloadSchema = z.object({
-  items: z.array(AiContentSchema),
-});
-
 async function tryGenerateWithAi(
   input: GeneratePreviewRequest,
   template: Record<string, unknown>,
 ): Promise<GeneratePreviewResponse> {
-  const apiKey = process.env['OPENAI_API_KEY'];
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY missing');
+  const payload = await generatePreviewWithClaude({
+    input,
+    template,
+  });
+  const generated = payload.items;
+  if (generated.length < input.count) {
+    throw new Error('Claude returned fewer items than requested');
   }
 
-  const model = process.env['OPENAI_MODEL'] ?? 'gpt-4.1-mini';
-  const baseUrl = process.env['OPENAI_BASE_URL'] ?? 'https://api.openai.com/v1';
-  const endpoint = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
+  const trimmed = generated.slice(0, input.count);
+  const warnings: string[] = [];
+  if (generated.length > input.count) {
+    warnings.push(
+      `Claude returned ${generated.length} items; trimmed to requested count ${input.count}.`,
+    );
+  }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model,
-        temperature: 0.3,
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'system',
-            content:
-              'Generate synthetic dummy JSON fixtures only. No markdown. No prose. Use [DUMMY] markers in user-visible text. Use only safe domains: example.com, example.org, example.net, example.test. Avoid real personal or company data.',
-          },
-          {
-            role: 'user',
-            content: JSON.stringify({
-              task: 'Generate preview content items for fixture generation',
-              source: input.source,
-              requestedCount: input.count,
-              topic: input.topic,
-              product: input.product,
-              category: input.category,
-              language: input.language,
-              detailLevel: input.detailLevel ?? 'medium',
-              severity: input.severity ?? 'medium',
-              sentiment: input.sentiment ?? 'neutral',
-              template,
-              outputShape: {
-                items: [{ content: {} }],
-              },
-            }),
-          },
-        ],
-      }),
-    });
-
-    const payload = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string | null } }>;
-      error?: { message?: string };
+  const items = trimmed.map((entry, index) => {
+    const ensured = coerceAiContentForSource(
+      input.source,
+      template,
+      ensurePlainObject(entry.content),
+      input,
+    );
+    if (!hasDummyMarker(ensured)) {
+      throw new Error('Claude output missing required [DUMMY] marker');
+    }
+    const domains = collectDomains(ensured);
+    const unsafe = domains.find((domain) => !isAllowedDomain(domain));
+    if (unsafe) {
+      throw new Error(`Claude output contains unsafe domain: ${unsafe}`);
+    }
+    return {
+      filename: ensureSafeFilename(
+        formatFilename({
+          date: new Date(),
+          source: input.source,
+          category: input.category,
+          topic: input.topic,
+          index,
+        }),
+      ),
+      content: ensured,
     };
+  });
 
-    if (!response.ok) {
-      throw new Error(
-        payload.error?.message ?? `OpenAI request failed with status ${response.status}`,
-      );
-    }
+  const validation = validateGeneratedFixtures({
+    source: input.source,
+    items: items as PreviewItem[],
+  });
+  const validationWarning = validation.some((entry) => entry.status !== 'ok')
+    ? ['Generated fixtures contain validation warnings.']
+    : [];
 
-    const raw = payload.choices?.[0]?.message?.content;
-    if (!raw || typeof raw !== 'string') {
-      throw new Error('OpenAI returned empty content');
-    }
-
-    let parsedJson: unknown;
-    try {
-      parsedJson = JSON.parse(raw);
-    } catch {
-      throw new Error('OpenAI returned malformed JSON');
-    }
-
-    const aiParsed = AiPayloadSchema.safeParse(parsedJson);
-    if (!aiParsed.success) {
-      throw new Error('OpenAI JSON does not match expected item shape');
-    }
-
-    const generated = aiParsed.data.items;
-    if (generated.length < input.count) {
-      throw new Error('OpenAI returned fewer items than requested');
-    }
-
-    const trimmed = generated.slice(0, input.count);
-    const warnings: string[] = [];
-    if (generated.length > input.count) {
-      warnings.push(
-        `OpenAI returned ${generated.length} items; trimmed to requested count ${input.count}.`,
-      );
-    }
-
-    const items = trimmed.map((entry, index) => {
-      const ensured = coerceAiContentForSource(
-        input.source,
-        template,
-        ensurePlainObject(entry.content),
-        input,
-      );
-      if (!hasDummyMarker(ensured)) {
-        throw new Error('OpenAI output missing required [DUMMY] marker');
-      }
-      const domains = collectDomains(ensured);
-      const unsafe = domains.find((domain) => !isAllowedDomain(domain));
-      if (unsafe) {
-        throw new Error(`OpenAI output contains unsafe domain: ${unsafe}`);
-      }
-      return {
-        filename: ensureSafeFilename(
-          formatFilename({
-            date: new Date(),
-            source: input.source,
-            category: input.category,
-            topic: input.topic,
-            index,
-          }),
-        ),
-        content: ensured,
-      };
-    });
-
-    const validation = validateGeneratedFixtures({
-      source: input.source,
-      items: items as PreviewItem[],
-    });
-    const validationWarning = validation.some((entry) => entry.status !== 'ok')
-      ? ['Generated fixtures contain validation warnings.']
-      : [];
-
-    return GeneratePreviewResponseSchema.parse({
-      items,
-      warnings: [...warnings, ...validationWarning],
-      generationMode: 'ai',
-      validation,
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
+  return GeneratePreviewResponseSchema.parse({
+    items,
+    warnings: [...warnings, ...validationWarning],
+    generationMode: 'ai',
+    validation,
+  });
 }
 
 export async function generatePreview(
@@ -472,9 +378,9 @@ export async function generatePreview(
   const loaded = await loadRawTemplateForSource(input.source);
   const template = ensurePlainObject(loaded.template);
 
-  if (!process.env['OPENAI_API_KEY']) {
+  if (!process.env['AZURE_OPENAI_API_KEY']) {
     return buildFallbackPreview(input, template, [
-      'OPENAI_API_KEY missing; using deterministic fallback.',
+      'AZURE_OPENAI_API_KEY missing; using deterministic fallback.',
     ]);
   }
 

@@ -9,6 +9,13 @@ import { generatePreview } from './generate-preview';
 import { formatFilename } from './generator-utils';
 import { loadRawTemplateForSource } from './template-loader';
 
+const { runAgentMock } = vi.hoisted(() => ({
+  runAgentMock: vi.fn(),
+}));
+vi.mock('@repo/agent', () => ({
+  runAgent: runAgentMock,
+}));
+
 function walkStrings(node: unknown, out: string[] = []): string[] {
   if (typeof node === 'string') {
     out.push(node);
@@ -27,12 +34,16 @@ function walkStrings(node: unknown, out: string[] = []): string[] {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
+  delete process.env['AZURE_OPENAI_API_KEY'];
   delete process.env['OPENAI_API_KEY'];
+  delete process.env['FIXTURE_CLAUDE_MODEL'];
+  delete process.env['LLM_REVIEWER_MODEL'];
+  runAgentMock.mockReset();
 });
 
 describe('generate preview fallback', () => {
-  it('uses fallback when OPENAI_API_KEY is missing', async () => {
-    delete process.env['OPENAI_API_KEY'];
+  it('uses fallback when AZURE_OPENAI_API_KEY is missing', async () => {
+    delete process.env['AZURE_OPENAI_API_KEY'];
     const res = await generatePreview({
       source: 'jira',
       topic: 'CSV Import broken',
@@ -45,11 +56,11 @@ describe('generate preview fallback', () => {
       sentiment: 'frustrated',
     });
     expect(res.generationMode).toBe('fallback');
-    expect(res.warnings.join(' ')).toContain('OPENAI_API_KEY missing');
+    expect(res.warnings.join(' ')).toContain('AZURE_OPENAI_API_KEY missing');
   });
 
   it('returns requested count and json filenames', async () => {
-    delete process.env['OPENAI_API_KEY'];
+    delete process.env['AZURE_OPENAI_API_KEY'];
     const res = await generatePreview({
       source: 'jira',
       topic: 'CSV Import broken',
@@ -73,7 +84,7 @@ describe('generate preview fallback', () => {
   });
 
   it('is deterministic for same input and fixed date', async () => {
-    delete process.env['OPENAI_API_KEY'];
+    delete process.env['AZURE_OPENAI_API_KEY'];
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-04-28T10:00:00.000Z'));
 
@@ -96,7 +107,7 @@ describe('generate preview fallback', () => {
   });
 
   it('preserves top-level template keys', async () => {
-    delete process.env['OPENAI_API_KEY'];
+    delete process.env['AZURE_OPENAI_API_KEY'];
     const template = await loadRawTemplateForSource('intercom');
     const expectedKeys = Object.keys(template.template).sort();
 
@@ -120,7 +131,7 @@ describe('generate preview fallback', () => {
   });
 
   it('generates only safe domains', async () => {
-    delete process.env['OPENAI_API_KEY'];
+    delete process.env['AZURE_OPENAI_API_KEY'];
     const res = await generatePreview({
       source: 'jira',
       topic: 'domain check',
@@ -156,58 +167,54 @@ describe('generate preview fallback', () => {
     );
   });
 
-  it('uses AI mode when OPENAI_API_KEY exists and AI returns valid payload', async () => {
-    process.env['OPENAI_API_KEY'] = 'test-key';
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  items: [
-                    {
-                      content: {
-                        id: 'ISSUE-1',
-                        topic: 'Login doesnt work',
-                        product: 'Portal',
-                        category: 'bug',
-                        language: 'de',
-                        severity: 'high',
-                        sentiment: 'frustrated',
-                        summary: 'Login fails after release',
-                        details: 'Users cannot sign in',
-                        reportedBy: 'someone@company.com',
-                        messages: [
-                          {
-                            text: '[DUMMY] Login doesnt work for multiple users',
-                          },
-                        ],
-                        channel: {
-                          name: 'support-login',
-                          topic: 'Login doesnt work',
-                          purpose: 'Investigating login outage',
-                        },
-                        participants: [
-                          {
-                            id: 'U900',
-                            display_name: 'Dummy Analyst',
-                            team_id: 'DE-MVP',
-                          },
-                        ],
-                        content: [],
-                      },
-                    },
-                  ],
-                }),
+  it('uses AI mode when AZURE_OPENAI_API_KEY exists and Claude returns valid payload', async () => {
+    process.env['AZURE_OPENAI_API_KEY'] = 'test-key';
+    process.env['FIXTURE_CLAUDE_MODEL'] = 'claude-test-model';
+    runAgentMock.mockResolvedValue({
+      output: {
+        items: [
+          {
+            content: {
+              id: 'ISSUE-1',
+              topic: 'Login doesnt work',
+              product: 'Portal',
+              category: 'bug',
+              language: 'de',
+              severity: 'high',
+              sentiment: 'frustrated',
+              summary: 'Login fails after release',
+              details: 'Users cannot sign in',
+              reportedBy: 'someone@company.com',
+              messages: [
+                {
+                  text: '[DUMMY] Login doesnt work for multiple users',
+                },
+              ],
+              channel: {
+                name: 'support-login',
+                topic: 'Login doesnt work',
+                purpose: 'Investigating login outage',
               },
+              participants: [
+                {
+                  id: 'U900',
+                  display_name: 'Dummy Analyst',
+                },
+              ],
+              content: [],
             },
-          ],
-        }),
-      }),
-    );
+          },
+        ],
+      },
+      metadata: {
+        turns: 1,
+        fallback_reason: null,
+        prompt: { name: null, version: null, label: null, from_fallback: false },
+        tool_calls: [],
+        trace_id: null,
+        trace_url: null,
+      },
+    });
 
     const res = await generatePreview({
       source: 'slack',
@@ -222,6 +229,9 @@ describe('generate preview fallback', () => {
     });
 
     expect(res.generationMode).toBe('ai');
+    expect(runAgentMock).toHaveBeenCalledTimes(1);
+    const firstCall = runAgentMock.mock.calls[0];
+    expect(firstCall?.[0]?.model).toBe('claude-test-model');
     expect(res.items).toHaveLength(1);
     expect(res.validation).toHaveLength(1);
     const first = res.items[0];
@@ -245,17 +255,33 @@ describe('generate preview fallback', () => {
     const content = first!.content['content'];
     expect(Array.isArray(content)).toBe(true);
     expect((content as Array<unknown>).length).toBeGreaterThan(0);
+
+    const channel = first!.content['channel'] as Record<string, unknown>;
+    expect(channel['team_id']).toBe('DE-MVP');
+    const participants = first!.content['participants'] as Array<Record<string, unknown>>;
+    for (const participant of participants) {
+      expect(participant['team_id']).toBe('DE-MVP');
+    }
+    const messages = first!.content['content'] as Array<Record<string, unknown>>;
+    for (const message of messages) {
+      expect(message['team_id']).toBe('DE-MVP');
+      const thread = message['thread'];
+      if (thread && typeof thread === 'object' && !Array.isArray(thread)) {
+        const threadObj = thread as Record<string, unknown>;
+        const replies = Array.isArray(threadObj['messages']) ? threadObj['messages'] : [];
+        expect(threadObj['reply_count']).toBe(replies.length);
+        for (const reply of replies) {
+          if (reply && typeof reply === 'object' && !Array.isArray(reply)) {
+            expect((reply as Record<string, unknown>)['team_id']).toBe('DE-MVP');
+          }
+        }
+      }
+    }
   });
 
-  it('falls back when AI request fails', async () => {
-    process.env['OPENAI_API_KEY'] = 'test-key';
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: false,
-        json: async () => ({ error: { message: 'API failed' } }),
-      }),
-    );
+  it('falls back when Claude request fails', async () => {
+    process.env['AZURE_OPENAI_API_KEY'] = 'test-key';
+    runAgentMock.mockRejectedValue(new Error('Claude failed'));
 
     const res = await generatePreview({
       source: 'jira',
@@ -272,17 +298,19 @@ describe('generate preview fallback', () => {
     expect(res.warnings.join(' ')).toContain('AI generation failed');
   });
 
-  it('falls back when AI returns malformed JSON', async () => {
-    process.env['OPENAI_API_KEY'] = 'test-key';
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          choices: [{ message: { content: '{not-json' } }],
-        }),
-      }),
-    );
+  it('falls back when Claude returns invalid shape', async () => {
+    process.env['AZURE_OPENAI_API_KEY'] = 'test-key';
+    runAgentMock.mockResolvedValue({
+      output: { wrong: true },
+      metadata: {
+        turns: 1,
+        fallback_reason: null,
+        prompt: { name: null, version: null, label: null, from_fallback: false },
+        tool_calls: [],
+        trace_id: null,
+        trace_url: null,
+      },
+    });
 
     const res = await generatePreview({
       source: 'upvoty',
@@ -296,38 +324,34 @@ describe('generate preview fallback', () => {
       sentiment: 'neutral',
     });
     expect(res.generationMode).toBe('fallback');
-    expect(res.warnings.join(' ')).toContain('malformed JSON');
+    expect(res.warnings.join(' ')).toContain('AI generation failed');
   });
 
-  it('falls back when AI returns unsafe domains', async () => {
-    process.env['OPENAI_API_KEY'] = 'test-key';
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  items: [
-                    {
-                      content: {
-                        source: { jiraSite: 'evil.com' },
-                        projects: [],
-                        boards: [],
-                        activeSprints: [],
-                        issues: [{ descriptionText: '[DUMMY] text' }],
-                      },
-                    },
-                  ],
-                }),
-              },
+  it('falls back when Claude returns unsafe domains', async () => {
+    process.env['AZURE_OPENAI_API_KEY'] = 'test-key';
+    runAgentMock.mockResolvedValue({
+      output: {
+        items: [
+          {
+            content: {
+              source: { jiraSite: 'evil.com' },
+              projects: [],
+              boards: [],
+              activeSprints: [],
+              issues: [{ descriptionText: '[DUMMY] text' }],
             },
-          ],
-        }),
-      }),
-    );
+          },
+        ],
+      },
+      metadata: {
+        turns: 1,
+        fallback_reason: null,
+        prompt: { name: null, version: null, label: null, from_fallback: false },
+        tool_calls: [],
+        trace_id: null,
+        trace_url: null,
+      },
+    });
 
     const res = await generatePreview({
       source: 'jira',
@@ -342,6 +366,53 @@ describe('generate preview fallback', () => {
     });
     expect(res.generationMode).toBe('fallback');
     expect(res.warnings.join(' ')).toContain('unsafe domain');
+  });
+
+  it('does not require OPENAI_API_KEY when AZURE_OPENAI_API_KEY is set', async () => {
+    delete process.env['OPENAI_API_KEY'];
+    process.env['AZURE_OPENAI_API_KEY'] = 'test-key';
+    delete process.env['FIXTURE_CLAUDE_MODEL'];
+    process.env['LLM_REVIEWER_MODEL'] = 'claude-from-reviewer-model';
+    runAgentMock.mockResolvedValue({
+      output: {
+        items: [
+          {
+            content: {
+              channel: {
+                topic: '[DUMMY] Login doesnt work',
+                purpose: '[DUMMY] investigating login issue',
+              },
+              participants: [],
+              content: [{ text: '[DUMMY] Login doesnt work' }],
+            },
+          },
+        ],
+      },
+      metadata: {
+        turns: 1,
+        fallback_reason: null,
+        prompt: { name: null, version: null, label: null, from_fallback: false },
+        tool_calls: [],
+        trace_id: null,
+        trace_url: null,
+      },
+    });
+
+    const res = await generatePreview({
+      source: 'slack',
+      topic: 'Login doesnt work',
+      product: 'portal',
+      category: 'bug',
+      language: 'de',
+      count: 1,
+      detailLevel: 'low',
+      severity: 'medium',
+      sentiment: 'frustrated',
+    });
+
+    expect(res.generationMode).toBe('ai');
+    const firstCall = runAgentMock.mock.calls[0];
+    expect(firstCall?.[0]?.model).toBe('claude-from-reviewer-model');
   });
 });
 
