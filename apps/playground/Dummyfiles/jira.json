@@ -1,0 +1,64 @@
+{
+  "source": {
+    "jiraSite": "your-domain.atlassian.net",
+    "projectScope": {
+      "mode": "allowlist",
+      "projectKeys": ["SHOP", "CRM", "BILLING"]
+    }
+  },
+  "projects": [
+    {
+      "id": "10000",
+      "key": "SHOP",
+      "name": "Shop Platform",
+      "type": "software"
+    }
+  ],
+  "boards": [
+    {
+      "id": 84,
+      "name": "SHOP Scrum Board",
+      "type": "scrum",
+      "projectKey": "SHOP"
+    }
+  ],
+  "activeSprints": [
+    {
+      "id": 123,
+      "name": "SHOP Sprint 2026-05",
+      "state": "active",
+      "goal": "Checkout und Bestellabschluss stabilisieren",
+      "projectKeys": ["SHOP"],
+      "boardId": 84,
+      "startDate": "2026-04-20T09:00:00.000+02:00",
+      "endDate": "2026-05-03T18:00:00.000+02:00"
+    }
+  ],
+  "issues": [
+    {
+      "key": "SHOP-142",
+      "projectKey": "SHOP",
+      "sprintId": 123,
+      "type": "Bug",
+      "status": "In Progress",
+      "priority": "High",
+      "summary": "Fehler beim Speichern der Lieferadresse",
+      "descriptionText": "Beim Checkout wird die geänderte Lieferadresse nicht persistiert.",
+      "labels": ["checkout", "regression"],
+      "components": ["Checkout"],
+      "comments": [
+        {
+          "authorRole": "developer",
+          "bodyText": "Ich konnte das Verhalten in Staging reproduzieren."
+        }
+      ],
+      "attachments": [
+        {
+          "filename": "checkout-error.png",
+          "mimeType": "image/png",
+          "size": 482133
+        }
+      ]
+    }
+  ]
+}
