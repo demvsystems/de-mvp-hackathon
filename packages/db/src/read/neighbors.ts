@@ -25,7 +25,7 @@ type NeighborRow = {
 export async function getNeighbors(input: GetNeighborsInput): Promise<NeighborRecord[]> {
   const edgeTypeFilter =
     input.edge_types && input.edge_types.length > 0
-      ? sql`AND e.type = ANY(${input.edge_types}::text[])`
+      ? sql`AND e.type = ANY(ARRAY[${input.edge_types}]::text[])`
       : sql``;
 
   const sortField =
@@ -45,7 +45,7 @@ export async function getNeighbors(input: GetNeighborsInput): Promise<NeighborRe
              1 AS depth,
              ARRAY[e.from_id, e.to_id] AS path
       FROM edges e
-      WHERE e.from_id = ANY(${input.from_ids}::text[])
+      WHERE e.from_id = ANY(ARRAY[${input.from_ids}]::text[])
         AND e.valid_to IS NULL
         ${edgeTypeFilter}
 

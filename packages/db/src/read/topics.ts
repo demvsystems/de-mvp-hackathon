@@ -38,7 +38,7 @@ export async function getTopics(input: GetTopicsInput): Promise<TopicWithAssessm
             SELECT a.*,
                    ROW_NUMBER() OVER (PARTITION BY topic_id ORDER BY assessed_at DESC) AS rn
             FROM topic_assessments a
-            WHERE a.topic_id = ANY(${input.ids}::text[])
+            WHERE a.topic_id = ANY(ARRAY[${input.ids}]::text[])
           ) ranked
           WHERE rn <= ${input.recent_assessments_limit}
         `)
@@ -99,7 +99,7 @@ export async function listActiveTopics(
             SELECT a.*,
                    ROW_NUMBER() OVER (PARTITION BY topic_id ORDER BY assessed_at DESC) AS rn
             FROM topic_assessments a
-            WHERE a.topic_id = ANY(${ids}::text[])
+            WHERE a.topic_id = ANY(ARRAY[${ids}]::text[])
           ) ranked
           WHERE rn <= ${recentLimit}
         `)

@@ -61,7 +61,7 @@ export async function getRecords(input: GetRecordsInput): Promise<RecordWithConf
     subquerySources.push(sql`
       EXISTS (SELECT 1 FROM ${edges} e
               WHERE e.from_id = ${records.id}
-                AND e.to_id = ANY(${input.posted_in}::text[])
+                AND e.to_id = ANY(ARRAY[${input.posted_in}]::text[])
                 AND e.type = 'posted_in'
                 AND e.valid_to IS NULL)
     `);
