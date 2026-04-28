@@ -159,5 +159,5 @@ Resources we use: `prompts`, `traces`. Other resources (`datasets`, `scores`, `o
 
 - `pnpm prompts:sync` is the canonical **create** path (reads `meta.yaml`, uploads via SDK). The CLI is for inspection, label moves, and ad-hoc reads.
 - The CLI is read-and-write under the same project key — be deliberate about destructive actions in shared projects.
-- Self-hosted Langfuse uses the same CLI; just point `LANGFUSE_HOST` at the self-hosted URL.
-- For CI scripts, prefer the SDK (`langfuse` npm) over shelling to the CLI — easier to error-handle and version-pin.
+- Self-hosted Langfuse uses the same CLI; point `LANGFUSE_BASE_URL` at the self-hosted URL (`LANGFUSE_HOST` still works as a compatibility fallback in this repo).
+- For CI scripts, prefer the SDK (`@langfuse/client`) over shelling to the CLI — easier to error-handle and version-pin.

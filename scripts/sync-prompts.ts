@@ -9,7 +9,7 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Langfuse } from 'langfuse';
+import { LangfuseClient } from '@langfuse/client';
 import { parse } from 'yaml';
 import { z } from 'zod';
 
@@ -41,11 +41,11 @@ async function main(): Promise<void> {
     throw new Error('LANGFUSE_SECRET_KEY and LANGFUSE_PUBLIC_KEY must be set (see .env.example).');
   }
 
-  const lf = new Langfuse({
-    secretKey: secret,
+  const lf = new LangfuseClient({
     publicKey,
-    ...(process.env['LANGFUSE_HOST'] !== undefined
-      ? { baseUrl: process.env['LANGFUSE_HOST'] }
+    secretKey: secret,
+    ...((process.env['LANGFUSE_BASE_URL'] ?? process.env['LANGFUSE_HOST']) !== undefined
+      ? { baseUrl: process.env['LANGFUSE_BASE_URL'] ?? process.env['LANGFUSE_HOST'] }
       : {}),
   });
 
@@ -55,7 +55,7 @@ async function main(): Promise<void> {
     }
     const body = await readFile(resolve(promptsDir, entry.file), 'utf8');
 
-    const created = await lf.createPrompt({
+    const created = await lf.prompt.create({
       name: entry.name,
       type: 'text',
       prompt: body,
@@ -74,7 +74,7 @@ async function main(): Promise<void> {
     );
   }
 
-  await lf.shutdownAsync();
+  await lf.shutdown();
 }
 
 main().catch((err: unknown) => {
