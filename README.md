@@ -45,6 +45,8 @@ Open <http://localhost:3000>.
 
 ## Scripts
 
+### General
+
 | Script                                           | Purpose                               |
 | ------------------------------------------------ | ------------------------------------- |
 | `pnpm init:dev`                                  | local setup: deps, env, Docker, DB    |
@@ -58,6 +60,46 @@ Open <http://localhost:3000>.
 | `pnpm db:generate`                               | generate migration from schema diff   |
 | `pnpm db:migrate`                                | apply migrations                      |
 | `pnpm db:studio`                                 | Drizzle Studio (DB GUI)               |
+
+### Event-System (Connectors + Materializer)
+
+Lokale Infra hochfahren:
+
+```bash
+docker-compose up -d                  # Postgres + NATS JetStream
+pnpm worker:materializer:provision    # Stream "EVENTS" + Consumer anlegen
+pnpm worker:materializer              # Materializer-Worker starten (Stub-Handler)
+```
+
+Connectors gegen die Pilot-Snapshots in `apps/playground/Dummyfiles/` laufen lassen:
+
+| Script                                                      | Purpose                                  |
+| ----------------------------------------------------------- | ---------------------------------------- |
+| `pnpm connectors`                                           | alle Sources, JSON auf stdout (legacy)   |
+| `pnpm connectors --watch`                                   | dito, watcht das data-dir                |
+| `pnpm connectors:slack` / `:jira` / `:intercom` / `:upvoty` | eine Source, Preview oder Publish        |
+| `pnpm worker:materializer`                                  | NATS-Subscriber starten                  |
+| `pnpm worker:materializer:provision`                        | Stream + Consumer in NATS provisionieren |
+
+**Connector-CLI-Flags** (gilt für `pnpm connectors:<source>`):
+
+| Flag           | Effekt                                                                                  |
+| -------------- | --------------------------------------------------------------------------------------- |
+| _(kein Flag)_  | Preview-Mode: Emissions auf stdout, kein Netzwerk-IO.                                   |
+| `-- --publish` | Live-Publish an NATS-Stream `EVENTS`. Voraussetzung: NATS läuft + Stream provisioniert. |
+| `-- --help`    | Volle Usage-Übersicht des Connector-Runners.                                            |
+| `[data-dir]`   | Optional positional; Default `apps/playground/Dummyfiles` (relativ zum Repo-Root).      |
+
+> Hinweis: `--` vor dem Flag ist nötig, damit pnpm es nicht selbst interpretiert.
+
+Beispiele:
+
+```bash
+pnpm connectors:slack                         # Preview
+pnpm connectors:slack -- --publish            # Slack-Snapshot an NATS publizieren
+pnpm connectors:jira ./eigener/pfad           # alternatives data-dir
+pnpm connectors:slack -- --help               # Help-Output
+```
 
 ## Layout
 

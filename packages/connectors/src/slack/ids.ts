@@ -2,18 +2,29 @@ import { makeRecordId } from '../core';
 
 export const SOURCE = 'slack';
 
-export function workspaceId(teamId: string): string {
-  return makeRecordId(SOURCE, 'workspace', teamId);
+/**
+ * Workspace-Default. Der aktuelle Mock liefert keine `team_id`; sobald die
+ * Mock-Lieferung das ergänzt, wird der Default überflüssig. Wir halten ihn
+ * konstant, damit IDs deterministisch und re-runbar bleiben.
+ */
+export const DEFAULT_WORKSPACE = 'hackathon';
+
+export function workspaceId(workspace: string = DEFAULT_WORKSPACE): string {
+  return makeRecordId(SOURCE, 'workspace', workspace);
 }
 
-export function channelId(teamId: string, channelId: string): string {
-  return makeRecordId(SOURCE, 'channel', teamId, channelId);
+export function channelId(channel: string, workspace: string = DEFAULT_WORKSPACE): string {
+  return makeRecordId(SOURCE, 'channel', workspace, channel);
 }
 
-export function userId(teamId: string, userId: string): string {
-  return makeRecordId(SOURCE, 'user', teamId, userId);
+export function userId(user: string, workspace: string = DEFAULT_WORKSPACE): string {
+  return makeRecordId(SOURCE, 'user', workspace, user);
 }
 
-export function messageId(teamId: string, channelId: string, ts: string): string {
-  return makeRecordId(SOURCE, 'msg', teamId, channelId, ts);
+export function messageId(
+  channel: string,
+  slackTs: string,
+  workspace: string = DEFAULT_WORKSPACE,
+): string {
+  return makeRecordId(SOURCE, 'msg', workspace, channel, slackTs);
 }

@@ -2,6 +2,7 @@ import {
   closeConnection,
   createSubscriber,
   EdgeObserved,
+  EmbeddingCreated,
   RecordDeleted,
   RecordObserved,
   RecordTombstoned,
@@ -16,6 +17,7 @@ import {
 import {
   handleAssessmentCreated,
   handleEdgeObserved,
+  handleEmbeddingCreated,
   handleRecordDeleted,
   handleRecordObserved,
   handleTopicArchived,
@@ -64,6 +66,10 @@ async function main(): Promise<void> {
     .on(EdgeObserved, async (payload, ctx) => {
       await handleEdgeObserved(payload, ctx);
       trace(ctx, 'edge.observed');
+    })
+    .on(EmbeddingCreated, async (payload, ctx) => {
+      await handleEmbeddingCreated(payload);
+      trace(ctx, 'embedding.created');
     })
     .on(TopicCreated, async (payload, ctx) => {
       await handleTopicCreated(payload, ctx);

@@ -100,7 +100,7 @@ export const topics = pgTable(
     stagnationSignalCount: integer('stagnation_signal_count').notNull().default(0),
     stagnationSeverity: text('stagnation_severity').notNull().default('none'),
 
-    centroid: vector('centroid', { dimensions: 1024 }),
+    centroid: vector('centroid', { dimensions: 1536 }),
 
     payload: jsonb('payload').notNull().default({}),
   },
@@ -147,7 +147,7 @@ export const embeddings = pgTable(
     chunkIdx: integer('chunk_idx').notNull().default(0),
     chunkText: text('chunk_text').notNull(),
     modelVersion: text('model_version').notNull(),
-    vectorValue: vector('vector', { dimensions: 1024 }).notNull(),
+    vectorValue: vector('vector', { dimensions: 1536 }).notNull(),
     generatedAt: timestamp('generated_at', { withTimezone: true }).notNull(),
   },
   (t) => [

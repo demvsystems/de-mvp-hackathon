@@ -1,82 +1,75 @@
-/**
- * Edge classes the connector layer is allowed to emit. Mirrors the design's
- * edge type enum (Zettel 1 + 2). The pipeline owner pins this exhaustively
- * in @repo/events; we duplicate it here to keep connectors decoupled.
- */
-export type EdgeType =
-  | 'authored_by'
-  | 'replies_to'
-  | 'commented_on'
-  | 'posted_in'
-  | 'child_of'
-  | 'references'
-  | 'assigned_to'
-  | 'belongs_to_sprint'
-  | 'mentions'
-  | 'discusses'
-  | 'supersedes';
+import {
+  publish as basePublish,
+  type EventDefinition,
+  type PublishAck,
+  type PublishInput,
+} from '@repo/messaging';
 
 export type IsoDateTime = string;
 
-export type RecordOutput = {
-  id: string;
-  kind: string;
-  source: string;
-  occurred_at: IsoDateTime;
-  source_event_id: string | null;
-  title: string | null;
-  body: string | null;
-  payload: Record<string, unknown>;
-  created_at: IsoDateTime;
-  updated_at: IsoDateTime;
-};
-
-export type EdgeOutput = {
-  from_id: string;
-  to_id: string;
-  type: EdgeType;
-  source: string;
-  confidence: number;
-  weight: number;
-  valid_from: IsoDateTime;
-  valid_to: IsoDateTime | null;
-};
-
 /**
- * What a connector emits per ingested row. Pipeline owner wraps each entry
- * into an EventEnvelope. When a `record` is present, edges in the same
- * output are caused by it (causation_id linkage is the pipeline's job).
+ * Eine Emission kapselt eine fertig konfigurierte Publish-Anweisung an das
+ * messaging-Package. Der Mapper erzeugt sie via `emit()`, der Runner ruft
+ * `publish()` auf. Die Generic-Information (Payload-Typ) wird in der Closure
+ * gehalten, sodass eine heterogene Liste von Emissions ohne Cast-Akrobatik
+ * funktioniert.
  */
-export type ConnectorOutput = {
-  records: RecordOutput[];
-  edges: EdgeOutput[];
-};
-
-/**
- * Per-row metadata embedded in JSONL fixtures. Streaming-mode replayers honor
- * `emit_at_offset_seconds` for realistic time spacing.
- */
-export type SyntheticMeta = {
-  emit_at_offset_seconds: number;
-};
-
-export type WithMeta<T> = T & { _meta: SyntheticMeta };
-
-/**
- * Source of source-rows. Pilot impl reads JSONL files; real impl will hit
- * the source API. Same iface, swap-in.
- */
-export interface IngestionSource<TRow> {
-  rows(): AsyncIterable<TRow>;
+export interface Emission {
+  readonly event_type: string;
+  readonly subject_id: string;
+  readonly source: string;
+  readonly payload: unknown;
+  /**
+   * Verweis auf das Event, das diese Emission ausgelöst hat. Bei strukturellen
+   * Edges aus dem Connector ist das die `event_id` des dazugehörigen
+   * Record-Events — damit ist die Provenance vom Edge zurück zum Auslöser
+   * traversierbar (siehe 02_connectors.md, "Pro Record-Event: Causation-Kette").
+   */
+  readonly causation_id: string | null;
+  publish(): Promise<PublishAck>;
 }
 
 /**
- * Uniform descriptor each connector lib exports. The dispatcher app picks one
- * by `name`, loads rows from `files` (one JSONL per kind), and calls
- * `handleRow` per parsed row. New connector = one entry in the registry.
+ * Typsicherer Konstruktor: Generic-Inferenz bindet `EventDefinition<T>` und
+ * `PublishInput<T>` aneinander. Aufrufer können die falsche Payload-Form für
+ * ein gegebenes Event nicht zuweisen — das fängt der Compiler ab, bevor
+ * Runtime-Validation greift.
  */
-export interface ConnectorSpec<TRow extends { kind: string } = { kind: string }> {
+export function emit<T>(event: EventDefinition<T>, input: PublishInput<T>): Emission {
+  return {
+    event_type: event.event_type,
+    subject_id: input.subject_id,
+    source: input.source,
+    payload: input.payload,
+    causation_id: input.causation_id ?? null,
+    publish: () => basePublish(event, input),
+  };
+}
+
+/**
+ * Was ein Mapper pro Source-Item zurückgibt: eine Liste von Emissions, die
+ * der Runner via `e.publish()` ans Bus schickt.
+ */
+export interface ConnectorOutput {
+  emissions: Emission[];
+}
+
+/**
+ * Reader-Schicht: liefert Source-Items aus einer konkreten Quelle. Heute lesen
+ * die Implementierungen Snapshot-JSON-Files; später könnten Webhook-Listener
+ * oder API-Poller die gleiche Schnittstelle erfüllen.
+ */
+export interface IngestionSource<TItem> {
+  items(): AsyncIterable<TItem>;
+}
+
+/**
+ * Connector-Registry-Eintrag. Ein Runner wählt einen Connector über `name`,
+ * fragt einen Reader für ein Daten-Verzeichnis ab und mappt jedes Item via
+ * `map()` auf Emissions.
+ */
+export interface ConnectorSpec<TItem = unknown> {
   name: string;
-  files: Record<string, string>;
-  handleRow: (row: TRow) => ConnectorOutput;
+  read(dir: string): IngestionSource<TItem>;
+  map(item: TItem): ConnectorOutput;
 }
