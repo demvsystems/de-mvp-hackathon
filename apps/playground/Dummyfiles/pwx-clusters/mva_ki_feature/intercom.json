@@ -1,0 +1,39 @@
+{
+  "conversations": [
+    {
+      "id": "conv_mva_9001",
+      "created_at": "2026-03-12T10:10:00.000Z",
+      "updated_at": "2026-03-12T10:10:00.000Z",
+      "state": "open",
+      "contact": {
+        "type": "user",
+        "id": "makler_801",
+        "name": "Makler G",
+        "email": "makler.g@example.com"
+      },
+      "tags": ["mva", "ki", "effizienz"],
+      "parts": [
+        {
+          "id": "conv_mva_9001_p1",
+          "part_type": "comment",
+          "body": "MVA spart mir pro Fall 20 Minuten. Sehr stark.",
+          "created_at": "2026-03-12T10:10:00.000Z",
+          "author": {
+            "type": "user",
+            "id": "makler_801",
+            "name": "Makler G",
+            "email": "makler.g@example.com"
+          }
+        }
+      ]
+    }
+  ],
+  "contacts": [
+    {
+      "id": "makler_801",
+      "name": "Makler G",
+      "email": "makler.g@example.com"
+    }
+  ],
+  "agents": []
+}

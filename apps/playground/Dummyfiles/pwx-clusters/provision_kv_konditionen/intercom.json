@@ -1,0 +1,39 @@
+{
+  "conversations": [
+    {
+      "id": "conv_pr_9001",
+      "created_at": "2026-03-01T10:10:00.000Z",
+      "updated_at": "2026-03-01T10:10:00.000Z",
+      "state": "open",
+      "contact": {
+        "type": "user",
+        "id": "makler_701",
+        "name": "Makler AO",
+        "email": "ao.wechsler@example.com"
+      },
+      "tags": ["provision", "kv", "einwand"],
+      "parts": [
+        {
+          "id": "conv_pr_9001_p1",
+          "part_type": "comment",
+          "body": "Ich hatte zweistellige MB in KV, mit 7,5 verliere ich Geld.",
+          "created_at": "2026-03-01T10:10:00.000Z",
+          "author": {
+            "type": "user",
+            "id": "makler_701",
+            "name": "Makler AO",
+            "email": "ao.wechsler@example.com"
+          }
+        }
+      ]
+    }
+  ],
+  "contacts": [
+    {
+      "id": "makler_701",
+      "name": "Makler AO",
+      "email": "ao.wechsler@example.com"
+    }
+  ],
+  "agents": []
+}

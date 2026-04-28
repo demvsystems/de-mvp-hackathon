@@ -1,0 +1,34 @@
+{
+  "channel": {
+    "id": "C111MVA01",
+    "name": "mva-gtm",
+    "display_name": "#mva-gtm",
+    "type": "public_channel",
+    "topic": "MVA Resonanz und Vermarktung",
+    "purpose": "Positive Signale in Sales und Marketing hebeln"
+  },
+  "participants": [
+    {
+      "id": "U030",
+      "display_name": "Marketing Lead",
+      "real_name": "Marketing Lead",
+      "role_hint": "product_owner"
+    }
+  ],
+  "content": [
+    {
+      "type": "chat_message",
+      "id": "msg_mva_001",
+      "slack_ts": "1777370010.000100",
+      "datetime": "2026-03-14T09:03:30Z",
+      "author": {
+        "id": "U030",
+        "display_name": "Marketing Lead"
+      },
+      "text": "Webinar mit 300 Teilnehmenden und sehr positiver Resonanz. MVA muss als Opener in die Kommunikation.",
+      "mentions": [],
+      "reactions": [],
+      "thread": null
+    }
+  ]
+}

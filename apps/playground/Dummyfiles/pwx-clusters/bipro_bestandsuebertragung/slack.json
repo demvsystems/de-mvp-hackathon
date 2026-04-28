@@ -1,0 +1,40 @@
+{
+  "channel": {
+    "id": "C111BIPRO01",
+    "name": "produkt-bipro",
+    "display_name": "#produkt-bipro",
+    "type": "public_channel",
+    "topic": "BiPro und Bestandsuebertragung",
+    "purpose": "Sammeln von Signalen zu Datenverlust bei Uebertragung"
+  },
+  "participants": [
+    {
+      "id": "U001",
+      "display_name": "Julia Produkt",
+      "real_name": "Julia Produkt",
+      "role_hint": "product_owner"
+    },
+    {
+      "id": "U004",
+      "display_name": "Tom Vertrieb",
+      "real_name": "Tom Vertrieb",
+      "role_hint": "support"
+    }
+  ],
+  "content": [
+    {
+      "type": "chat_message",
+      "id": "msg_bipro_001",
+      "slack_ts": "1777367010.000100",
+      "datetime": "2026-02-11T10:03:30Z",
+      "author": {
+        "id": "U004",
+        "display_name": "Tom Vertrieb"
+      },
+      "text": "Haueft sich: Sparte und Zahlweise gehen bei Pool-Uebergabe verloren. Sehen wir in Intercom und Facebook.",
+      "mentions": ["U001"],
+      "reactions": [],
+      "thread": null
+    }
+  ]
+}

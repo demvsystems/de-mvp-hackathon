@@ -1,0 +1,34 @@
+{
+  "source": {
+    "jiraSite": "demvsystems.atlassian.net",
+    "projectScope": {
+      "mode": "allowlist",
+      "projectKeys": ["DEMV"]
+    }
+  },
+  "projects": [
+    {
+      "id": "10010",
+      "key": "DEMV",
+      "name": "DE MVP Product",
+      "type": "software"
+    }
+  ],
+  "boards": [],
+  "activeSprints": [],
+  "issues": [
+    {
+      "key": "DEMV-5002",
+      "projectKey": "DEMV",
+      "type": "Story",
+      "status": "To Do",
+      "priority": "Medium",
+      "summary": "MVA Positionierung und Datenschutz-FAQ ausbauen",
+      "descriptionText": "Positives Cluster aus Intercom, Facebook, Webinar und Won-Deal systematisch nutzen.",
+      "labels": ["mva", "marketing", "datenschutz"],
+      "components": ["GoToMarket"],
+      "comments": [],
+      "attachments": []
+    }
+  ]
+}

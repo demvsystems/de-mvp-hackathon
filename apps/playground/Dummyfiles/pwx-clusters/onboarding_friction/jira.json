@@ -1,0 +1,34 @@
+{
+  "source": {
+    "jiraSite": "demvsystems.atlassian.net",
+    "projectScope": {
+      "mode": "allowlist",
+      "projectKeys": ["DEMV"]
+    }
+  },
+  "projects": [
+    {
+      "id": "10010",
+      "key": "DEMV",
+      "name": "DE MVP Product",
+      "type": "software"
+    }
+  ],
+  "boards": [],
+  "activeSprints": [],
+  "issues": [
+    {
+      "key": "DEMV-4321",
+      "projectKey": "DEMV",
+      "type": "Task",
+      "status": "Backlog",
+      "priority": "Low",
+      "summary": "Hilfe-Artikel Vertragsimport aktualisieren",
+      "descriptionText": "Anleitung veraltet, onboarding frictions fuehren zu spaeter Produktivnutzung.",
+      "labels": ["onboarding", "hilfe_content", "activation"],
+      "components": ["Onboarding"],
+      "comments": [],
+      "attachments": []
+    }
+  ]
+}
