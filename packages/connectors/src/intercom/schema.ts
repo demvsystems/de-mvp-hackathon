@@ -23,6 +23,24 @@ export const IntercomConversationPart = z.object({
 });
 export type IntercomConversationPart = z.infer<typeof IntercomConversationPart>;
 
+/**
+ * Lifecycle-Update auf einer Conversation. `previous` hält die Felder, die VOR
+ * diesem Update auf der Conversation standen — der Mapper rekonstruiert daraus
+ * den Stand vor jedem Update. Updates sind chronologisch aufsteigend.
+ */
+export const IntercomConversationUpdate = z.object({
+  at: z.iso.datetime(),
+  previous: z
+    .object({
+      state: z.string().optional(),
+      assignee_id: z.string().nullable().optional(),
+      tags: z.array(z.string()).optional(),
+      subject: z.string().nullable().optional(),
+    })
+    .strict(),
+});
+export type IntercomConversationUpdate = z.infer<typeof IntercomConversationUpdate>;
+
 export const IntercomConversation = z.object({
   id: z.string(),
   created_at: z.string(),
@@ -33,6 +51,8 @@ export const IntercomConversation = z.object({
   assignee_id: z.string().nullable().optional(),
   tags: z.array(z.string()).default([]),
   parts: z.array(IntercomConversationPart).default([]),
+  updates: z.array(IntercomConversationUpdate).optional(),
+  deleted_at: z.iso.datetime().optional(),
 });
 export type IntercomConversation = z.infer<typeof IntercomConversation>;
 

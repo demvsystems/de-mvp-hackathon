@@ -26,6 +26,12 @@ export interface Emission {
    * traversierbar (siehe 02_connectors.md, "Pro Record-Event: Causation-Kette").
    */
   readonly causation_id: string | null;
+  /**
+   * Per-Source-Korrelation: alle Events einer Konversation/Cascade tragen
+   * denselben Schlüssel. Slack: Top-Level-Message, Intercom: Conversation,
+   * Jira: Sprint, Upvoty: Post. Macht Trace und Debug nachvollziehbar.
+   */
+  readonly correlation_id: string | null;
   publish(): Promise<PublishAck>;
 }
 
@@ -42,6 +48,7 @@ export function emit<T>(event: EventDefinition<T>, input: PublishInput<T>): Emis
     source: input.source,
     payload: input.payload,
     causation_id: input.causation_id ?? null,
+    correlation_id: input.correlation_id ?? null,
     publish: () => basePublish(event, input),
   };
 }

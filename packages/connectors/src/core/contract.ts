@@ -60,6 +60,7 @@ export function serializeEmission(e: Emission): {
   source: string;
   subject_id: string;
   causation_id: string | null;
+  correlation_id: string | null;
   payload: unknown;
 } {
   return {
@@ -67,6 +68,7 @@ export function serializeEmission(e: Emission): {
     source: e.source,
     subject_id: e.subject_id,
     causation_id: e.causation_id,
+    correlation_id: e.correlation_id,
     payload: e.payload,
   };
 }

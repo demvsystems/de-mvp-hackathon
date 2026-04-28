@@ -1,4 +1,4 @@
-import { EdgeObserved, RecordObserved } from '@repo/messaging';
+import { EdgeObserved, RecordDeleted, RecordObserved, RecordUpdated } from '@repo/messaging';
 import {
   edgeSource,
   emit,
@@ -97,19 +97,54 @@ function emitUser(u: UpvotyUser, occurredAt: IsoDateTime): Emission {
   });
 }
 
+/** Mutable Felder eines Posts, die per `updates[].previous` rekonstruierbar sind. */
+interface PostStateSlice {
+  status: string;
+  title: string;
+  body: string | null;
+}
+
 function emitPostCascade(p: UpvotyPost, emissions: Emission[]): void {
   const postSubjectId = postId(p.id);
   const authorSubjectId = userId(p.author_id);
   const boardSubjectId = boardId(p.board_id);
-  const payload = {
+  const updates = p.updates ?? [];
+
+  const stateAt = (untilIdx: number): PostStateSlice => {
+    let state: PostStateSlice = { status: p.status, title: p.title, body: p.body };
+    for (let j = updates.length - 1; j > untilIdx; j--) {
+      const prev = updates[j]!.previous;
+      // body kann explizit null sein (war vorher leer). Daher `!== undefined`.
+      state = {
+        status: prev.status ?? state.status,
+        title: prev.title ?? state.title,
+        body: prev.body !== undefined ? prev.body : state.body,
+      };
+    }
+    return state;
+  };
+
+  const buildPayload = (
+    s: PostStateSlice,
+    updatedAt: string,
+  ): {
+    id: string;
+    type: string;
+    source: string;
+    title: string;
+    body: string | null;
+    payload: Record<string, unknown>;
+    created_at: string;
+    updated_at: string;
+  } => ({
     id: postSubjectId,
     type: 'post',
     source: SOURCE,
-    title: p.title,
-    body: p.body,
+    title: s.title,
+    body: s.body,
     payload: {
       upvoty_id: p.id,
-      status: p.status,
+      status: s.status,
       board_id: p.board_id,
       author_id: p.author_id,
       vote_count: p.vote_count,
@@ -117,14 +152,15 @@ function emitPostCascade(p: UpvotyPost, emissions: Emission[]): void {
       comment_count: p.comments.length,
     },
     created_at: p.created_at,
-    updated_at: p.created_at,
-  };
+    updated_at: updatedAt,
+  });
 
+  const observedPayload = buildPayload(stateAt(-1), p.created_at);
   const causationId = predictRecordObservedId({
     source: SOURCE,
     subject_id: postSubjectId,
     occurred_at: p.created_at,
-    payload,
+    payload: observedPayload,
   });
 
   emissions.push(
@@ -133,14 +169,60 @@ function emitPostCascade(p: UpvotyPost, emissions: Emission[]): void {
       occurred_at: p.created_at,
       subject_id: postSubjectId,
       source_event_id: p.id,
-      payload,
+      payload: observedPayload,
+      correlation_id: postSubjectId,
     }),
   );
 
   emissions.push(
-    emitEdge('authored_by', postSubjectId, authorSubjectId, p.created_at, causationId),
+    emitPostEdge(
+      'authored_by',
+      postSubjectId,
+      authorSubjectId,
+      p.created_at,
+      causationId,
+      postSubjectId,
+    ),
   );
-  emissions.push(emitEdge('posted_in', postSubjectId, boardSubjectId, p.created_at, causationId));
+  emissions.push(
+    emitPostEdge(
+      'posted_in',
+      postSubjectId,
+      boardSubjectId,
+      p.created_at,
+      causationId,
+      postSubjectId,
+    ),
+  );
+
+  for (let i = 0; i < updates.length; i++) {
+    const update = updates[i]!;
+    emissions.push(
+      emit(RecordUpdated, {
+        source: SOURCE,
+        occurred_at: update.at,
+        subject_id: postSubjectId,
+        source_event_id: `${p.id}#update#${i}`,
+        causation_id: causationId,
+        correlation_id: postSubjectId,
+        payload: buildPayload(stateAt(i), update.at),
+      }),
+    );
+  }
+
+  if (p.deleted_at !== undefined) {
+    emissions.push(
+      emit(RecordDeleted, {
+        source: SOURCE,
+        occurred_at: p.deleted_at,
+        subject_id: postSubjectId,
+        source_event_id: `${p.id}#delete`,
+        causation_id: causationId,
+        correlation_id: postSubjectId,
+        payload: { id: postSubjectId },
+      }),
+    );
+  }
 
   for (const c of p.comments) {
     emitCommentCascade(c, p.id, postSubjectId, emissions);
@@ -184,29 +266,47 @@ function emitCommentCascade(
       subject_id: commentSubjectId,
       source_event_id: c.id,
       payload,
+      correlation_id: postSubjectId,
     }),
   );
 
   emissions.push(
-    emitEdge('commented_on', commentSubjectId, postSubjectId, c.created_at, causationId),
+    emitPostEdge(
+      'commented_on',
+      commentSubjectId,
+      postSubjectId,
+      c.created_at,
+      causationId,
+      postSubjectId,
+    ),
   );
   emissions.push(
-    emitEdge('authored_by', commentSubjectId, authorSubjectId, c.created_at, causationId),
+    emitPostEdge(
+      'authored_by',
+      commentSubjectId,
+      authorSubjectId,
+      c.created_at,
+      causationId,
+      postSubjectId,
+    ),
   );
 }
 
-function emitEdge(
+/** Edge-Helper für die Post-Cascade — trägt correlation_id auf das Post-Subject. */
+function emitPostEdge(
   type: 'posted_in' | 'authored_by' | 'commented_on',
   fromId: string,
   toId: string,
   validFrom: IsoDateTime,
   causationId: string,
+  correlationId: string,
 ): Emission {
   return emit(EdgeObserved, {
     source: SOURCE,
     occurred_at: validFrom,
     subject_id: makeEdgeId(type, fromId, toId),
     causation_id: causationId,
+    correlation_id: correlationId,
     payload: {
       from_id: fromId,
       to_id: toId,

@@ -1,4 +1,4 @@
-import { EdgeObserved, RecordObserved } from '@repo/messaging';
+import { EdgeObserved, RecordDeleted, RecordObserved, RecordUpdated } from '@repo/messaging';
 import {
   edgeSource,
   emit,
@@ -175,35 +175,85 @@ function emitSprintCascade(s: JiraSprint, emissions: Emission[]): void {
   }
 }
 
+/** Felder einer Issue, die per `updates[].previous` rückwirkend rekonstruiert
+ *  werden können. Andere Felder (key, projectKey, sprintId, type, attachments,
+ *  comments) gelten als identitätsstiftend bzw. ändern sich im Pilot nicht. */
+type IssueMutableState = Pick<
+  JiraIssue,
+  'status' | 'priority' | 'summary' | 'descriptionText' | 'labels' | 'components'
+>;
+
 function emitIssueCascade(issue: JiraIssue, occurredAt: IsoDateTime, emissions: Emission[]): void {
   const subjectId = issueId(issue.key);
-  const payload = {
+  const updates = issue.updates ?? [];
+
+  const buildPayload = (
+    state: IssueMutableState,
+  ): {
+    id: string;
+    type: string;
+    source: string;
+    title: string;
+    body: string;
+    payload: Record<string, unknown>;
+    created_at: IsoDateTime;
+    updated_at: IsoDateTime;
+  } => ({
     id: subjectId,
     type: 'issue',
     source: SOURCE,
-    title: issue.summary,
-    body: issue.descriptionText,
+    title: state.summary,
+    body: state.descriptionText,
     payload: {
       key: issue.key,
       project_key: issue.projectKey,
       sprint_id: issue.sprintId ?? null,
       issue_type: issue.type,
-      status: issue.status,
-      priority: issue.priority,
-      labels: issue.labels,
-      components: issue.components,
+      status: state.status,
+      priority: state.priority,
+      labels: state.labels,
+      components: state.components,
       attachment_count: issue.attachments.length,
       comment_count: issue.comments.length,
     },
     created_at: occurredAt,
     updated_at: occurredAt,
+  });
+
+  // Rollt die Updates ab Index `untilIdx+1` rückwärts auf den aktuellen Stand,
+  // sodass `untilIdx === -1` den Original-Stand und `untilIdx === updates.length-1`
+  // den Endstand liefert. Symmetrisch zur Slack-Edit-Kette.
+  const stateAt = (untilIdx: number): IssueMutableState => {
+    let state: IssueMutableState = {
+      status: issue.status,
+      priority: issue.priority,
+      summary: issue.summary,
+      descriptionText: issue.descriptionText,
+      labels: issue.labels,
+      components: issue.components,
+    };
+    for (let j = updates.length - 1; j > untilIdx; j--) {
+      const prev = updates[j]!.previous;
+      // Pro Feld einzeln zurückrollen: bei exactOptionalPropertyTypes lässt sich
+      // Partial<>-Spread nicht typsicher auf Pflichtfelder anwenden.
+      state = {
+        status: prev.status ?? state.status,
+        priority: prev.priority ?? state.priority,
+        summary: prev.summary ?? state.summary,
+        descriptionText: prev.descriptionText ?? state.descriptionText,
+        labels: prev.labels ?? state.labels,
+        components: prev.components ?? state.components,
+      };
+    }
+    return state;
   };
 
-  const causationId = predictRecordObservedId({
+  const observedPayload = buildPayload(stateAt(-1));
+  const observedCausation = predictRecordObservedId({
     source: SOURCE,
     subject_id: subjectId,
     occurred_at: occurredAt,
-    payload,
+    payload: observedPayload,
   });
 
   emissions.push(
@@ -212,19 +262,69 @@ function emitIssueCascade(issue: JiraIssue, occurredAt: IsoDateTime, emissions: 
       occurred_at: occurredAt,
       subject_id: subjectId,
       source_event_id: issue.key,
-      payload,
+      payload: observedPayload,
+      correlation_id: subjectId,
     }),
   );
   emissions.push(
-    emitEdge('posted_in', subjectId, projectId(issue.projectKey), occurredAt, causationId),
+    emitIssueEdge(
+      'posted_in',
+      subjectId,
+      projectId(issue.projectKey),
+      occurredAt,
+      observedCausation,
+      subjectId,
+    ),
   );
   if (issue.sprintId !== undefined) {
     emissions.push(
-      emitEdge('belongs_to_sprint', subjectId, sprintId(issue.sprintId), occurredAt, causationId),
+      emitIssueEdge(
+        'belongs_to_sprint',
+        subjectId,
+        sprintId(issue.sprintId),
+        occurredAt,
+        observedCausation,
+        subjectId,
+      ),
+    );
+  }
+
+  for (let i = 0; i < updates.length; i++) {
+    const update = updates[i]!;
+    const newState = stateAt(i);
+    emissions.push(
+      emit(RecordUpdated, {
+        source: SOURCE,
+        occurred_at: update.at,
+        subject_id: subjectId,
+        source_event_id: `${issue.key}#update#${i}`,
+        causation_id: observedCausation,
+        correlation_id: subjectId,
+        payload: {
+          ...buildPayload(newState),
+          updated_at: update.at,
+        },
+      }),
+    );
+  }
+
+  if (issue.deleted_at !== undefined) {
+    emissions.push(
+      emit(RecordDeleted, {
+        source: SOURCE,
+        occurred_at: issue.deleted_at,
+        subject_id: subjectId,
+        source_event_id: `${issue.key}#delete`,
+        causation_id: observedCausation,
+        correlation_id: subjectId,
+        payload: { id: subjectId },
+      }),
     );
   }
 }
 
+/** Edge-Helper für Project/Board/Sprint — strukturelle Container ohne Konversations-
+ *  kontext, daher correlation_id = null. */
 function emitEdge(
   type: 'posted_in' | 'belongs_to_sprint',
   fromId: string,
@@ -237,6 +337,34 @@ function emitEdge(
     occurred_at: validFrom,
     subject_id: makeEdgeId(type, fromId, toId),
     causation_id: causationId,
+    payload: {
+      from_id: fromId,
+      to_id: toId,
+      type,
+      source: EDGE_SOURCE,
+      confidence: 1.0,
+      weight: 1.0,
+      valid_from: validFrom,
+      valid_to: null,
+    },
+  });
+}
+
+/** Edge-Helper für Issue-Cascade — trägt correlation_id auf das Issue-Subject. */
+function emitIssueEdge(
+  type: 'posted_in' | 'belongs_to_sprint',
+  fromId: string,
+  toId: string,
+  validFrom: IsoDateTime,
+  causationId: string,
+  correlationId: string,
+): Emission {
+  return emit(EdgeObserved, {
+    source: SOURCE,
+    occurred_at: validFrom,
+    subject_id: makeEdgeId(type, fromId, toId),
+    causation_id: causationId,
+    correlation_id: correlationId,
     payload: {
       from_id: fromId,
       to_id: toId,

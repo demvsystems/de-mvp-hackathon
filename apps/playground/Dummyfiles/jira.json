@@ -58,6 +58,12 @@
           "mimeType": "image/png",
           "size": 482133
         }
+      ],
+      "updates": [
+        {
+          "at": "2026-04-22T08:30:00.000Z",
+          "previous": { "status": "To Do", "priority": "Medium" }
+        }
       ]
     }
   ]

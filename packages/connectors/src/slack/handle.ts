@@ -1,4 +1,4 @@
-import { EdgeObserved, RecordObserved } from '@repo/messaging';
+import { EdgeObserved, RecordObserved, RecordTombstoned, RecordUpdated } from '@repo/messaging';
 import {
   edgeSource,
   emit,
@@ -40,7 +40,7 @@ export function map(item: unknown): ConnectorOutput {
   }
 
   for (const msg of snap.content) {
-    visitMessage(msg, channelSubjectId, snap.channel.id, null, emissions);
+    visitMessage(msg, channelSubjectId, snap.channel.id, null, null, emissions);
   }
 
   return { emissions };
@@ -117,17 +117,26 @@ function visitMessage(
   channelSubjectId: string,
   rawChannelId: string,
   parentSubjectId: string | null,
+  topLevelSubjectId: string | null,
   emissions: Emission[],
 ): void {
   const msgSubjectId = messageId(rawChannelId, msg.slack_ts, WORKSPACE);
   const authorSubjectId = userId(msg.author.id, WORKSPACE);
+  // Top-Level-Message korreliert auf sich selbst, Replies erben den Anker
+  // ihres Threads. So tragen alle Events einer Konversation denselben Schlüssel.
+  const correlationId = topLevelSubjectId ?? msgSubjectId;
 
-  const msgPayload = {
+  // Bei Edits ist der initiale `body` der Text VOR dem ersten Edit. Ohne Edits
+  // ist `text` der einzige bekannte Stand.
+  const hasEdits = msg.edits !== undefined && msg.edits.length > 0;
+  const originalBody = hasEdits ? msg.edits![0]!.previous_text : msg.text;
+
+  const observedPayload = {
     id: msgSubjectId,
     type: 'message',
     source: SOURCE,
     title: null,
-    body: msg.text,
+    body: originalBody,
     payload: {
       slack_id: msg.id,
       slack_ts: msg.slack_ts,
@@ -140,11 +149,11 @@ function visitMessage(
     updated_at: msg.datetime,
   };
 
-  const causationId = predictRecordObservedId({
+  const observedCausation = predictRecordObservedId({
     source: SOURCE,
     subject_id: msgSubjectId,
     occurred_at: msg.datetime,
-    payload: msgPayload,
+    payload: observedPayload,
   });
 
   emissions.push(
@@ -153,7 +162,8 @@ function visitMessage(
       occurred_at: msg.datetime,
       subject_id: msgSubjectId,
       source_event_id: msg.slack_ts,
-      payload: msgPayload,
+      payload: observedPayload,
+      correlation_id: correlationId,
     }),
   );
 
@@ -162,7 +172,8 @@ function visitMessage(
       source: SOURCE,
       occurred_at: msg.datetime,
       subject_id: makeEdgeId('authored_by', msgSubjectId, authorSubjectId),
-      causation_id: causationId,
+      causation_id: observedCausation,
+      correlation_id: correlationId,
       payload: {
         from_id: msgSubjectId,
         to_id: authorSubjectId,
@@ -181,7 +192,8 @@ function visitMessage(
       source: SOURCE,
       occurred_at: msg.datetime,
       subject_id: makeEdgeId('posted_in', msgSubjectId, channelSubjectId),
-      causation_id: causationId,
+      causation_id: observedCausation,
+      correlation_id: correlationId,
       payload: {
         from_id: msgSubjectId,
         to_id: channelSubjectId,
@@ -201,7 +213,8 @@ function visitMessage(
         source: SOURCE,
         occurred_at: msg.datetime,
         subject_id: makeEdgeId('replies_to', msgSubjectId, parentSubjectId),
-        causation_id: causationId,
+        causation_id: observedCausation,
+        correlation_id: correlationId,
         payload: {
           from_id: msgSubjectId,
           to_id: parentSubjectId,
@@ -216,6 +229,46 @@ function visitMessage(
     );
   }
 
+  // Edits zu einer Kette von record.updated abrollen. body[i] = previous_text
+  // des nächsten Edits (oder der aktuelle `text` beim letzten).
+  if (hasEdits) {
+    const edits = msg.edits!;
+    for (let i = 0; i < edits.length; i++) {
+      const edit = edits[i]!;
+      const isLast = i === edits.length - 1;
+      const newBody = isLast ? msg.text : edits[i + 1]!.previous_text;
+      emissions.push(
+        emit(RecordUpdated, {
+          source: SOURCE,
+          occurred_at: edit.edited_at,
+          subject_id: msgSubjectId,
+          source_event_id: `${msg.slack_ts}#edit#${i}`,
+          causation_id: observedCausation,
+          correlation_id: correlationId,
+          payload: {
+            ...observedPayload,
+            body: newBody,
+            updated_at: edit.edited_at,
+          },
+        }),
+      );
+    }
+  }
+
+  if (msg.deleted_at !== undefined) {
+    emissions.push(
+      emit(RecordTombstoned, {
+        source: SOURCE,
+        occurred_at: msg.deleted_at,
+        subject_id: msgSubjectId,
+        source_event_id: `${msg.slack_ts}#tombstone`,
+        causation_id: observedCausation,
+        correlation_id: correlationId,
+        payload: { id: msgSubjectId },
+      }),
+    );
+  }
+
   // User-Tags aus `msg.mentions[]` werden bewusst NICHT als Edge emittiert —
   // das ist Aufgabe des Mention-Extractors (Z7) bzw. der "Referenzen Extrahiert"-
   // Box am EventStream. Die Liste bleibt im Record-Payload sichtbar, sodass ein
@@ -223,7 +276,7 @@ function visitMessage(
   // Connector Information vorenthält.
   if (msg.thread) {
     for (const reply of msg.thread.messages) {
-      visitMessage(reply, channelSubjectId, rawChannelId, msgSubjectId, emissions);
+      visitMessage(reply, channelSubjectId, rawChannelId, msgSubjectId, correlationId, emissions);
     }
   }
 }

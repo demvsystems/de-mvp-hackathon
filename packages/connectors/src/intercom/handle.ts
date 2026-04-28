@@ -1,4 +1,4 @@
-import { EdgeObserved, RecordObserved } from '@repo/messaging';
+import { EdgeObserved, RecordDeleted, RecordObserved, RecordUpdated } from '@repo/messaging';
 import {
   edgeSource,
   emit,
@@ -44,30 +44,76 @@ export function map(item: unknown): ConnectorOutput {
   return { emissions };
 }
 
+/** Mutable Felder einer Conversation, die per `updates[].previous`
+ *  rekonstruierbar sind. Andere Felder (id, contact, parts, created_at) gelten
+ *  als identitätsstiftend bzw. ändern sich nicht in der Demo. */
+interface ConversationStateSlice {
+  state: string;
+  assignee_id: string | null;
+  tags: string[];
+  subject: string | null;
+}
+
 function emitConversationCascade(conv: IntercomConversation, emissions: Emission[]): void {
   const convSubjectId = conversationId(conv.id);
-  const payload = {
+  const updates = conv.updates ?? [];
+
+  const stateAt = (untilIdx: number): ConversationStateSlice => {
+    let state: ConversationStateSlice = {
+      state: conv.state,
+      assignee_id: conv.assignee_id ?? null,
+      tags: conv.tags,
+      subject: conv.subject ?? null,
+    };
+    for (let j = updates.length - 1; j > untilIdx; j--) {
+      const prev = updates[j]!.previous;
+      // assignee_id und subject können explizit `null` im previous sein (war
+      // vorher nicht zugewiesen). Daher `!== undefined` statt `??`.
+      state = {
+        state: prev.state ?? state.state,
+        assignee_id: prev.assignee_id !== undefined ? prev.assignee_id : state.assignee_id,
+        tags: prev.tags ?? state.tags,
+        subject: prev.subject !== undefined ? prev.subject : state.subject,
+      };
+    }
+    return state;
+  };
+
+  const buildPayload = (
+    s: ConversationStateSlice,
+    updatedAt: string,
+  ): {
+    id: string;
+    type: string;
+    source: string;
+    title: string | null;
+    body: string | null;
+    payload: Record<string, unknown>;
+    created_at: string;
+    updated_at: string;
+  } => ({
     id: convSubjectId,
     type: 'conversation',
     source: SOURCE,
-    title: conv.subject ?? null,
+    title: s.subject,
     body: null,
     payload: {
-      state: conv.state,
-      tags: conv.tags,
+      state: s.state,
+      tags: s.tags,
       contact_id: conv.contact.id,
-      assignee_id: conv.assignee_id ?? null,
+      assignee_id: s.assignee_id,
       part_count: conv.parts.length,
     },
     created_at: conv.created_at,
-    updated_at: conv.updated_at,
-  };
+    updated_at: updatedAt,
+  });
 
+  const observedPayload = buildPayload(stateAt(-1), conv.created_at);
   const causationId = predictRecordObservedId({
     source: SOURCE,
     subject_id: convSubjectId,
     occurred_at: conv.created_at,
-    payload,
+    payload: observedPayload,
   });
 
   emissions.push(
@@ -76,30 +122,64 @@ function emitConversationCascade(conv: IntercomConversation, emissions: Emission
       occurred_at: conv.created_at,
       subject_id: convSubjectId,
       source_event_id: conv.id,
-      payload,
+      payload: observedPayload,
+      correlation_id: convSubjectId,
     }),
   );
 
-  // Conversation gehört dem Customer (initiator).
+  // Conversation gehört dem Customer (initiator). Edge auf Original-Assignee,
+  // falls vorhanden — Re-Assignments sehen wir über record.updated im Payload.
   emissions.push(
-    emitEdge(
+    emitConversationEdge(
       'authored_by',
       convSubjectId,
       contactId(conv.contact.id),
       conv.created_at,
       causationId,
+      convSubjectId,
     ),
   );
 
-  if (conv.assignee_id) {
+  const originalAssignee = stateAt(-1).assignee_id;
+  if (originalAssignee !== null) {
     emissions.push(
-      emitEdge(
+      emitConversationEdge(
         'assigned_to',
         convSubjectId,
-        agentId(conv.assignee_id),
+        agentId(originalAssignee),
         conv.created_at,
         causationId,
+        convSubjectId,
       ),
+    );
+  }
+
+  for (let i = 0; i < updates.length; i++) {
+    const update = updates[i]!;
+    emissions.push(
+      emit(RecordUpdated, {
+        source: SOURCE,
+        occurred_at: update.at,
+        subject_id: convSubjectId,
+        source_event_id: `${conv.id}#update#${i}`,
+        causation_id: causationId,
+        correlation_id: convSubjectId,
+        payload: buildPayload(stateAt(i), update.at),
+      }),
+    );
+  }
+
+  if (conv.deleted_at !== undefined) {
+    emissions.push(
+      emit(RecordDeleted, {
+        source: SOURCE,
+        occurred_at: conv.deleted_at,
+        subject_id: convSubjectId,
+        source_event_id: `${conv.id}#delete`,
+        causation_id: causationId,
+        correlation_id: convSubjectId,
+        payload: { id: convSubjectId },
+      }),
     );
   }
 
@@ -146,12 +226,29 @@ function emitPartCascade(
       subject_id: partSubjectId,
       source_event_id: part.id,
       payload,
+      correlation_id: convSubjectId,
     }),
   );
 
-  emissions.push(emitEdge('posted_in', partSubjectId, convSubjectId, part.created_at, causationId));
   emissions.push(
-    emitEdge('authored_by', partSubjectId, authorSubjectId, part.created_at, causationId),
+    emitConversationEdge(
+      'posted_in',
+      partSubjectId,
+      convSubjectId,
+      part.created_at,
+      causationId,
+      convSubjectId,
+    ),
+  );
+  emissions.push(
+    emitConversationEdge(
+      'authored_by',
+      partSubjectId,
+      authorSubjectId,
+      part.created_at,
+      causationId,
+      convSubjectId,
+    ),
   );
 }
 
@@ -210,18 +307,22 @@ function actorSubjectId(actor: IntercomActor): string {
   return actor.type === 'admin' ? agentId(actor.id) : contactId(actor.id);
 }
 
-function emitEdge(
+/** Edge-Helper für die Conversation-Cascade — trägt correlation_id auf das
+ *  Conversation-Subject. */
+function emitConversationEdge(
   type: 'posted_in' | 'authored_by' | 'assigned_to',
   fromId: string,
   toId: string,
   validFrom: IsoDateTime,
   causationId: string,
+  correlationId: string,
 ): Emission {
   return emit(EdgeObserved, {
     source: SOURCE,
     occurred_at: validFrom,
     subject_id: makeEdgeId(type, fromId, toId),
     causation_id: causationId,
+    correlation_id: correlationId,
     payload: {
       from_id: fromId,
       to_id: toId,

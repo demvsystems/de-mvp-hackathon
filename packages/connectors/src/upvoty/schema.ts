@@ -28,6 +28,22 @@ export const UpvotyComment = z.object({
 });
 export type UpvotyComment = z.infer<typeof UpvotyComment>;
 
+/**
+ * Lifecycle-Update auf einem Post. `previous` hält die Felder, die VOR
+ * diesem Update auf dem Post standen — analog zu Jira/Intercom.
+ */
+export const UpvotyPostUpdate = z.object({
+  at: z.iso.datetime(),
+  previous: z
+    .object({
+      status: z.string().optional(),
+      title: z.string().optional(),
+      body: z.string().nullable().optional(),
+    })
+    .strict(),
+});
+export type UpvotyPostUpdate = z.infer<typeof UpvotyPostUpdate>;
+
 export const UpvotyPost = z.object({
   id: z.string(),
   title: z.string(),
@@ -39,6 +55,8 @@ export const UpvotyPost = z.object({
   vote_count: z.number().default(0),
   voter_ids: z.array(z.string()).default([]),
   comments: z.array(UpvotyComment).default([]),
+  updates: z.array(UpvotyPostUpdate).optional(),
+  deleted_at: z.iso.datetime().optional(),
 });
 export type UpvotyPost = z.infer<typeof UpvotyPost>;
 

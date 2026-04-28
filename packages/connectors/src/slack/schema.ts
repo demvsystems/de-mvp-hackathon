@@ -20,10 +20,30 @@ const SlackReaction = z.object({
 });
 
 /**
+ * Ein einzelner Edit in der Historie einer Nachricht. `previous_text` ist der
+ * Text VOR diesem Edit, `edited_at` ist der Zeitpunkt des Edits. Edits sind
+ * chronologisch aufsteigend; der aktuelle Text liegt in `text` der Message.
+ */
+export interface SlackEdit {
+  edited_at: string;
+  previous_text: string;
+}
+
+const SlackEditSchema = z.object({
+  edited_at: z.iso.datetime(),
+  previous_text: z.string(),
+});
+
+/**
  * Eine Slack-Chat-Nachricht oder Thread-Reply. Threads sind genested:
  * `thread.messages[]` enthält die Replies. Beim Top-Level-Message zeigt
  * `thread.root_message_id` auf die eigene `id` — Replies haben dort die
  * Top-Level-`id` des Threads.
+ *
+ * Optional Lifecycle-Felder:
+ * - `edits[]` chronologisch (älteste zuerst). Mapper rekonstruiert daraus
+ *   eine Kette `record.observed → record.updated → record.updated …`.
+ * - `deleted_at` markiert ein Tombstone; Mapper emittiert `record.tombstoned`.
  */
 export interface SlackChatMessage {
   type: 'chat_message' | 'thread_reply';
@@ -45,6 +65,8 @@ export interface SlackChatMessage {
       }
     | null
     | undefined;
+  edits?: SlackEdit[] | undefined;
+  deleted_at?: string | undefined;
 }
 
 export const SlackChatMessage: z.ZodType<SlackChatMessage> = z.lazy(() =>
@@ -65,6 +87,8 @@ export const SlackChatMessage: z.ZodType<SlackChatMessage> = z.lazy(() =>
         messages: z.array(SlackChatMessage),
       })
       .nullish(),
+    edits: z.array(SlackEditSchema).optional(),
+    deleted_at: z.iso.datetime().optional(),
   }),
 );
 

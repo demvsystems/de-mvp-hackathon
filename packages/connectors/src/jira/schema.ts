@@ -41,6 +41,26 @@ export const JiraAttachment = z.object({
 });
 export type JiraAttachment = z.infer<typeof JiraAttachment>;
 
+/**
+ * Ein Lifecycle-Update auf einer Issue. `previous` hält die Felder, die VOR
+ * diesem Update auf der Issue standen — der Mapper kann daraus den Stand vor
+ * jedem Update rekonstruieren. Updates sind chronologisch aufsteigend.
+ */
+export const JiraIssueUpdate = z.object({
+  at: z.iso.datetime(),
+  previous: z
+    .object({
+      status: z.string().optional(),
+      priority: z.string().optional(),
+      summary: z.string().optional(),
+      descriptionText: z.string().optional(),
+      labels: z.array(z.string()).optional(),
+      components: z.array(z.string()).optional(),
+    })
+    .strict(),
+});
+export type JiraIssueUpdate = z.infer<typeof JiraIssueUpdate>;
+
 export const JiraIssue = z.object({
   key: z.string(),
   projectKey: z.string(),
@@ -54,6 +74,8 @@ export const JiraIssue = z.object({
   components: z.array(z.string()).default([]),
   comments: z.array(JiraComment).default([]),
   attachments: z.array(JiraAttachment).default([]),
+  updates: z.array(JiraIssueUpdate).optional(),
+  deleted_at: z.iso.datetime().optional(),
 });
 export type JiraIssue = z.infer<typeof JiraIssue>;
 
