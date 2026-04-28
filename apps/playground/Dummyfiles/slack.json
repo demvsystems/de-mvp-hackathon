@@ -1,0 +1,143 @@
+{
+  "channel": {
+    "id": "C111PRODUCT1",
+    "name": "produkt1",
+    "display_name": "#produkt1",
+    "type": "public_channel",
+    "topic": "Abstimmung zu Produkt 1",
+    "purpose": "Planung, Bugs, Releases und Kundenfeedback für Produkt 1"
+  },
+  "participants": [
+    {
+      "id": "U001",
+      "display_name": "Anna Keller",
+      "real_name": "Anna Keller",
+      "role_hint": "product_owner"
+    },
+    {
+      "id": "U002",
+      "display_name": "Ben Schneider",
+      "real_name": "Ben Schneider",
+      "role_hint": "developer"
+    },
+    {
+      "id": "U003",
+      "display_name": "Carla Neumann",
+      "real_name": "Carla Neumann",
+      "role_hint": "qa"
+    },
+    {
+      "id": "U004",
+      "display_name": "David Weber",
+      "real_name": "David Weber",
+      "role_hint": "support"
+    }
+  ],
+  "content": [
+    {
+      "type": "chat_message",
+      "id": "msg_001",
+      "slack_ts": "1777367010.000100",
+      "datetime": "2026-04-28T09:03:30Z",
+      "author": {
+        "id": "U001",
+        "display_name": "Anna Keller"
+      },
+      "text": "Guten Morgen, wir haben für Produkt 1 zwei offene Punkte vor dem Release: Export-Performance und Validierung der neuen Tariflogik.",
+      "mentions": [],
+      "reactions": [
+        {
+          "name": "eyes",
+          "count": 2,
+          "users": ["U002", "U003"]
+        }
+      ],
+      "thread": {
+        "id": "thread_001",
+        "root_message_id": "msg_001",
+        "reply_count": 2,
+        "messages": [
+          {
+            "type": "thread_reply",
+            "id": "msg_001_reply_001",
+            "slack_ts": "1777367150.000100",
+            "datetime": "2026-04-28T09:05:50Z",
+            "author": {
+              "id": "U002",
+              "display_name": "Ben Schneider"
+            },
+            "text": "Export-Performance habe ich gestern gemessen. Bei 10.000 Datensätzen liegen wir noch bei knapp 8 Sekunden.",
+            "mentions": [],
+            "reactions": []
+          },
+          {
+            "type": "thread_reply",
+            "id": "msg_001_reply_002",
+            "slack_ts": "1777367291.000200",
+            "datetime": "2026-04-28T09:08:11Z",
+            "author": {
+              "id": "U003",
+              "display_name": "Carla Neumann"
+            },
+            "text": "Die Tariflogik ist fachlich geprüft. Ich würde nur noch einen Regressionstest gegen die letzten drei Kundenfälle laufen lassen.",
+            "mentions": [],
+            "reactions": [
+              {
+                "name": "white_check_mark",
+                "count": 1,
+                "users": ["U001"]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "chat_message",
+      "id": "msg_002",
+      "slack_ts": "1777367355.000100",
+      "datetime": "2026-04-28T09:09:15Z",
+      "author": {
+        "id": "U004",
+        "display_name": "David Weber"
+      },
+      "text": "Ich habe gerade den Fehler aus dem Kundenimport nachgestellt. Ursache ist ein leeres Feld in der Zuordnungstabelle.",
+      "mentions": ["U002"],
+      "reactions": [],
+      "thread": {
+        "id": "thread_002",
+        "root_message_id": "msg_002",
+        "reply_count": 1,
+        "messages": [
+          {
+            "type": "thread_reply",
+            "id": "msg_002_reply_001",
+            "slack_ts": "1777367422.000100",
+            "datetime": "2026-04-28T09:10:22Z",
+            "author": {
+              "id": "U002",
+              "display_name": "Ben Schneider"
+            },
+            "text": "Danke. Dann setze ich dafür eine Pflichtfeldprüfung vor dem Mapping.",
+            "mentions": [],
+            "reactions": []
+          }
+        ]
+      }
+    },
+    {
+      "type": "chat_message",
+      "id": "msg_003",
+      "slack_ts": "1777367552.000300",
+      "datetime": "2026-04-28T09:12:32Z",
+      "author": {
+        "id": "U001",
+        "display_name": "Anna Keller"
+      },
+      "text": "Bitte bis 14 Uhr Rückmeldung geben, ob wir den Release-Kandidaten heute noch freigeben können.",
+      "mentions": ["U002", "U003", "U004"],
+      "reactions": [],
+      "thread": null
+    }
+  ]
+}
