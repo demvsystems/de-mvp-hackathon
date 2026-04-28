@@ -16,7 +16,8 @@
     "@repo/connectors": "workspace:*",
     "@repo/embedder": "workspace:*",
     "@repo/materializer": "workspace:*",
-    "@repo/messaging": "workspace:*"
+    "@repo/messaging": "workspace:*",
+    "@repo/topic-discovery": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20",

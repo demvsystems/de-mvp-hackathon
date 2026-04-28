@@ -37,6 +37,9 @@ const SUBSCRIBER_WORKERS: Record<string, SubscriberWorkerSpec> = {
     load: () => import('@repo/agent/reviewer').then((m) => m.agentReviewerModule),
     requiredEnv: ['AZURE_OPENAI_API_KEY'],
   },
+  'topic-discovery': {
+    load: () => import('@repo/topic-discovery').then((m) => m.topicDiscoveryModule),
+  },
 };
 
 const ALL_WORKERS = ['connectors', ...Object.keys(SUBSCRIBER_WORKERS)];

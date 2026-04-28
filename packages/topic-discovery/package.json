@@ -14,7 +14,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build": "echo 'no build'",
-    "start": "tsx src/index.ts",
     "provision": "tsx src/provision.ts"
   },
   "dependencies": {

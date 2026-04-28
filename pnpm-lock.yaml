@@ -59,6 +59,9 @@ importers:
       '@repo/messaging':
         specifier: workspace:*
         version: link:../../packages/messaging
+      '@repo/topic-discovery':
+        specifier: workspace:*
+        version: link:../../packages/topic-discovery
     devDependencies:
       '@types/node':
         specifier: ^20
