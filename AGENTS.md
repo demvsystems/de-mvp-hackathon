@@ -16,7 +16,7 @@ pnpm workspace. Packages:
   - `app/` — pages + route handlers.
   - `components/ui/` — shadcn primitives.
   - `lib/` — web-local utilities.
-- `apps/worker/` — long-running Node service (`tsx`).
+- `apps/playground/` — Next app on port 3001 for vibe-coder data-gen UIs.
 - `packages/db/` — Drizzle schema + client (`@repo/db`, consumed via workspace).
 
 Workspace conventions:
@@ -28,7 +28,7 @@ Workspace conventions:
 
 Run from repo root unless noted.
 
-- `pnpm dev` — Next app. `pnpm dev:worker` — worker.
+- `pnpm dev` — `apps/web` on :3000. `pnpm dev:playground` — `apps/playground` on :3001.
 - `pnpm build` / `lint` / `typecheck` / `test` — fan out via `pnpm -r`.
 - `pnpm format` / `format:check`.
 - `pnpm db:push` / `db:generate` / `db:migrate` / `db:studio` — runs in `packages/db`.
