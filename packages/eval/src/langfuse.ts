@@ -1,25 +1,15 @@
-import { Langfuse } from 'langfuse';
+import {
+  applyLangfuseTraceContext,
+  ensureLangfuseTracing,
+  flushLangfuse,
+  getDefaultLangfuseClient,
+  shutdownLangfuse as shutdownSharedLangfuse,
+} from '@repo/agent-core';
+import { type LangfuseEvaluator, startObservation } from '@langfuse/tracing';
 import type { CriterionScore } from './criteria';
 
-let cached: Langfuse | null | undefined;
-
-export function getLangfuse(): Langfuse | null {
-  if (cached !== undefined) return cached;
-
-  const secret = process.env['LANGFUSE_SECRET_KEY'];
-  const publicKey = process.env['LANGFUSE_PUBLIC_KEY'];
-  const host = process.env['LANGFUSE_HOST'];
-  if (!secret || !publicKey) {
-    cached = null;
-    return cached;
-  }
-
-  cached = new Langfuse({
-    secretKey: secret,
-    publicKey,
-    ...(host !== undefined ? { baseUrl: host } : {}),
-  });
-  return cached;
+export function getLangfuse() {
+  return getDefaultLangfuseClient();
 }
 
 export interface FixtureTraceInput {
@@ -36,7 +26,8 @@ export interface FixtureTraceHandle {
 
 export function startFixtureTrace(input: FixtureTraceInput): FixtureTraceHandle {
   const lf = getLangfuse();
-  if (!lf) {
+  const tracingEnabled = ensureLangfuseTracing();
+  if (!lf || !tracingEnabled) {
     return {
       score: () => undefined,
       setOutput: () => undefined,
@@ -44,29 +35,46 @@ export function startFixtureTrace(input: FixtureTraceInput): FixtureTraceHandle 
     };
   }
 
-  const trace = lf.trace({
-    name: 'eval.fixture',
-    input: { fixtureId: input.fixtureId, category: input.category },
-    metadata: { rubricVersion: input.rubricVersion },
+  const trace: LangfuseEvaluator = startObservation(
+    'eval.fixture',
+    {
+      input: { fixtureId: input.fixtureId, category: input.category },
+      metadata: { rubricVersion: input.rubricVersion },
+    },
+    { asType: 'evaluator' },
+  );
+  applyLangfuseTraceContext(trace, {
+    traceName: 'eval.fixture',
     tags: ['eval', `category:${input.category}`],
+    metadata: {
+      fixture_id: input.fixtureId,
+      category: input.category,
+      rubric_version: input.rubricVersion,
+    },
   });
+  trace.setTraceIO({ input: { fixtureId: input.fixtureId, category: input.category } });
 
   return {
     score: (s) =>
-      trace.score({
-        name: s.criterion,
-        value: s.score,
-        ...(s.notes !== undefined ? { comment: s.notes } : {}),
-      }),
-    setOutput: (output) => trace.update({ output }),
+      lf.score.trace(
+        { otelSpan: trace.otelSpan },
+        {
+          name: s.criterion,
+          value: s.score,
+          ...(s.notes !== undefined ? { comment: s.notes } : {}),
+        },
+      ),
+    setOutput: (output) => {
+      trace.update({ output });
+      trace.setTraceIO({ output });
+    },
     end: async () => {
-      await lf.flushAsync();
+      trace.end();
+      await flushLangfuse();
     },
   };
 }
 
 export async function shutdownLangfuse(): Promise<void> {
-  if (cached) {
-    await cached.shutdownAsync();
-  }
+  await shutdownSharedLangfuse();
 }

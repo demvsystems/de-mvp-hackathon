@@ -17,10 +17,10 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@langfuse/tracing": "5.2.0",
     "@repo/agent-core": "workspace:*",
     "@repo/db": "workspace:*",
     "@repo/llm-reviewer": "workspace:*",
-    "langfuse": "^3.38.3",
     "yaml": "^2.7.0",
     "zod": "^4.3.6"
   },
