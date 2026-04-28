@@ -52,10 +52,9 @@ export function inferDetectedObjectType(template: unknown): string | null {
 
   if (keys.includes('issues')) return 'jira-issue-collection';
   if (keys.includes('content') && keys.includes('channel')) return 'slack-channel-conversation';
-  if (keys.includes('posts') && keys.includes('votes')) return 'upvoty-polling-snapshot';
-
-  const conversationTopic = keys.find((k) => k.includes('conversation.'));
-  if (conversationTopic) return 'intercom-webhook-events';
+  if (keys.includes('conversations') && keys.includes('contacts'))
+    return 'intercom-conversation-snapshot';
+  if (keys.includes('boards') && keys.includes('posts')) return 'upvoty-feedback-snapshot';
   return null;
 }
 

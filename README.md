@@ -87,7 +87,7 @@ Worker-Auswahl per `--workers`:
 | _(kein Flag)_  | Preview-Mode: Emissions auf stdout, kein Netzwerk-IO.                                   |
 | `-- --publish` | Live-Publish an NATS-Stream `EVENTS`. Voraussetzung: NATS läuft + Stream provisioniert. |
 | `-- --help`    | Volle Usage-Übersicht des Connector-Runners.                                            |
-| `[data-dir]`   | Optional positional; Default `apps/playground/Dummyfiles` (relativ zum Repo-Root).      |
+| `[data-dir]`   | Optional positional; Default `fixtures` (relativ zum Repo-Root).                        |
 
 > Hinweis: `--` vor dem Flag ist nötig, damit pnpm es nicht selbst interpretiert.
 

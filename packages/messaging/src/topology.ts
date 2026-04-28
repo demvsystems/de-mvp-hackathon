@@ -47,6 +47,21 @@ export async function provisionConsumer(opts: ConsumerOptions): Promise<void> {
   }
 }
 
+export async function deleteConsumer(durable_name: string): Promise<void> {
+  const nc = await getConnection();
+  const jsm = await jetstreamManager(nc);
+  try {
+    await jsm.consumers.delete(STREAM_NAME, durable_name);
+  } catch (err) {
+    if (!isNotFound(err)) throw err;
+  }
+}
+
+function isNotFound(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return message.includes('not found') || message.includes('no consumer');
+}
+
 function isAlreadyExists(err: unknown): boolean {
   const message = err instanceof Error ? err.message : String(err);
   return message.includes('already in use') || message.includes('already exists');

@@ -71,7 +71,7 @@ async function* iterEmissions<T>(
 // Default-Datapath (relativ zum Repo-Root): unsere Pilot-Snapshots im Playground.
 // Wird gegen INIT_CWD aufgelöst, sodass `pnpm connectors:slack` von überall im
 // Repo aus konsistent denselben Ordner trifft.
-const DEFAULT_DATA_DIR = 'apps/playground/Dummyfiles';
+const DEFAULT_DATA_DIR = 'fixtures';
 
 const HELP = `Usage:
   pnpm connectors:<slack|jira|intercom|upvoty> [data-dir] [flags]

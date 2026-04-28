@@ -1,0 +1,155 @@
+{
+  "source": {
+    "jiraSite": "your-domain.atlassian.net",
+    "projectScope": {
+      "mode": "allowlist",
+      "projectKeys": ["SHOP", "CRM", "BILLING"]
+    }
+  },
+  "projects": [
+    {
+      "id": "10000",
+      "key": "SHOP",
+      "name": "Shop Platform",
+      "type": "software"
+    },
+    {
+      "id": "10010",
+      "key": "BILLING",
+      "name": "Billing & Infra",
+      "type": "software"
+    }
+  ],
+  "boards": [
+    {
+      "id": 84,
+      "name": "SHOP Scrum Board",
+      "type": "scrum",
+      "projectKey": "SHOP"
+    }
+  ],
+  "activeSprints": [
+    {
+      "id": 123,
+      "name": "SHOP Sprint 2026-05",
+      "state": "active",
+      "goal": "Checkout und Bestellabschluss stabilisieren",
+      "projectKeys": ["SHOP"],
+      "boardId": 84,
+      "startDate": "2026-04-20T09:00:00.000+02:00",
+      "endDate": "2026-05-03T18:00:00.000+02:00"
+    }
+  ],
+  "issues": [
+    {
+      "key": "SHOP-142",
+      "projectKey": "SHOP",
+      "sprintId": 123,
+      "type": "Bug",
+      "status": "In Progress",
+      "priority": "High",
+      "summary": "Fehler beim Speichern der Lieferadresse",
+      "descriptionText": "Beim Checkout wird die geänderte Lieferadresse nicht persistiert.",
+      "labels": ["checkout", "regression"],
+      "components": ["Checkout"],
+      "comments": [
+        {
+          "authorRole": "developer",
+          "bodyText": "Ich konnte das Verhalten in Staging reproduzieren."
+        }
+      ],
+      "attachments": [
+        {
+          "filename": "checkout-error.png",
+          "mimeType": "image/png",
+          "size": 482133
+        }
+      ],
+      "updates": [
+        {
+          "at": "2026-04-22T08:30:00.000Z",
+          "previous": { "status": "To Do", "priority": "Medium" }
+        }
+      ]
+    },
+    {
+      "key": "SHOP-201",
+      "projectKey": "SHOP",
+      "sprintId": 123,
+      "type": "Epic",
+      "status": "In Progress",
+      "priority": "High",
+      "summary": "SAML-SSO für Enterprise-Tenants",
+      "descriptionText": "Mehrere Enterprise-Kunden (Intercom conv_9003) und Upvoty-Anfragen (post_2001) fordern SAML-SSO als Voraussetzung für Lizenz-Rollouts. Q2-Commitment.",
+      "labels": ["sso", "saml", "enterprise"],
+      "components": ["Auth"],
+      "comments": [
+        {
+          "authorRole": "product-owner",
+          "bodyText": "Aktuell drei Enterprise-Anfragen offen, alle mit Lizenzvolumen ≥50."
+        }
+      ],
+      "attachments": []
+    },
+    {
+      "key": "SHOP-205",
+      "projectKey": "SHOP",
+      "sprintId": 123,
+      "type": "Task",
+      "status": "To Do",
+      "priority": "Medium",
+      "summary": "Mobile-Dashboard Performance auf älteren Android-Geräten",
+      "descriptionText": "Außendienst meldet 8-10s Ladezeiten (Intercom conv_9004, Upvoty post_2002). Bundle-Splitting + Image-Optimierung prüfen.",
+      "labels": ["mobile", "performance"],
+      "components": ["Dashboard"],
+      "comments": [],
+      "attachments": []
+    },
+    {
+      "key": "SHOP-220",
+      "projectKey": "SHOP",
+      "sprintId": 123,
+      "type": "Bug",
+      "status": "In Progress",
+      "priority": "High",
+      "summary": "Customer-Import: Pflichtfeldprüfung im Mapper fehlt",
+      "descriptionText": "Ohne Pflichtfeldprüfung scheitert der Import bei leerer Zuordnungstabelle (Slack #produkt1 msg_002, Intercom conv_9005). Fix vor Mapping einbauen.",
+      "labels": ["import", "data-quality"],
+      "components": ["Import"],
+      "comments": [
+        {
+          "authorRole": "developer",
+          "bodyText": "Reproduziert in Staging mit leerer Zuordnungstabelle — Fix wäre eine simple Pre-Validation."
+        }
+      ],
+      "attachments": []
+    },
+    {
+      "key": "SHOP-240",
+      "projectKey": "SHOP",
+      "sprintId": 123,
+      "type": "Task",
+      "status": "To Do",
+      "priority": "Medium",
+      "summary": "Regressionstests für Tariflogik-Validierung",
+      "descriptionText": "QA hat Tariflogik fachlich geprüft (Slack #produkt1 msg_001 thread). Regressionstest gegen die letzten drei Kundenfälle als Suite verankern.",
+      "labels": ["regression", "tariff"],
+      "components": ["Pricing"],
+      "comments": [],
+      "attachments": []
+    },
+    {
+      "key": "BILLING-77",
+      "projectKey": "BILLING",
+      "type": "Task",
+      "status": "To Do",
+      "priority": "Low",
+      "summary": "TLS-Zertifikat im Build-Pipeline rotieren",
+      "descriptionText": "Ablauf in 30 Tagen. Rotation in Build-Pipeline anstoßen.",
+      "labels": ["infra", "security"],
+      "components": ["Build"],
+      "comments": [],
+      "attachments": []
+    }
+  ]
+}

@@ -145,6 +145,67 @@
       "reactions": [],
       "thread": null,
       "deleted_at": "2026-04-28T09:25:00Z"
+    },
+    {
+      "type": "chat_message",
+      "id": "msg_004",
+      "slack_ts": "1777455600.000400",
+      "datetime": "2026-04-29T09:30:00Z",
+      "author": {
+        "id": "U002",
+        "display_name": "Ben Schneider"
+      },
+      "text": "Hab gerade SHOP-142 reproduziert: Checkout failed mit 502, sobald eine Firmenkreditkarte kommt. Customer demo.user@example.com (Intercom conv_9001) hat exakt das gemeldet. Payment-Gateway-Timeout, Region eu-central.",
+      "mentions": ["U001"],
+      "reactions": [{ "name": "warning", "count": 1, "users": ["U001"] }],
+      "thread": {
+        "id": "thread_004",
+        "root_message_id": "msg_004",
+        "reply_count": 1,
+        "messages": [
+          {
+            "type": "thread_reply",
+            "id": "msg_004_reply_001",
+            "slack_ts": "1777455720.000100",
+            "datetime": "2026-04-29T09:32:00Z",
+            "author": {
+              "id": "U001",
+              "display_name": "Anna Keller"
+            },
+            "text": "Danke. Setze SHOP-142 auf High — blockiert das Release.",
+            "mentions": [],
+            "reactions": []
+          }
+        ]
+      }
+    },
+    {
+      "type": "chat_message",
+      "id": "msg_005",
+      "slack_ts": "1777456800.000500",
+      "datetime": "2026-04-29T09:50:00Z",
+      "author": {
+        "id": "U001",
+        "display_name": "Anna Keller"
+      },
+      "text": "Wir haben jetzt drei Enterprise-Anfragen zu SAML-SSO (Upvoty post_2001 + Intercom conv_9003). Slot in Q2 reservieren — Epic SHOP-201 ist auf In Progress.",
+      "mentions": ["U002"],
+      "reactions": [{ "name": "thumbsup", "count": 2, "users": ["U002", "U003"] }],
+      "thread": null
+    },
+    {
+      "type": "chat_message",
+      "id": "msg_006",
+      "slack_ts": "1777458000.000600",
+      "datetime": "2026-04-29T10:10:00Z",
+      "author": {
+        "id": "U004",
+        "display_name": "David Weber"
+      },
+      "text": "Außendienst meldet wieder Mobile-Dashboard-Lahmsucht (Upvoty post_2002 + Intercom conv_9004). Können wir SHOP-205 in den Sprint ziehen?",
+      "mentions": ["U001", "U002"],
+      "reactions": [],
+      "thread": null
     }
   ]
 }

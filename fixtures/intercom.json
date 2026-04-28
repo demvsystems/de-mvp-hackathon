@@ -1,0 +1,229 @@
+{
+  "conversations": [
+    {
+      "id": "conv_9001",
+      "created_at": "2026-04-28T09:10:00.000Z",
+      "updated_at": "2026-04-28T10:05:19.000Z",
+      "state": "closed",
+      "subject": "Checkout funktioniert nicht mit Firmenkreditkarte",
+      "contact": {
+        "type": "user",
+        "id": "usr_501",
+        "name": "Demo User",
+        "email": "demo.user@example.com"
+      },
+      "assignee_id": "adm_88",
+      "tags": ["billing", "checkout"],
+      "parts": [
+        {
+          "id": "part_1",
+          "part_type": "comment",
+          "body": "Ich kann den Checkout mit Firmenkreditkarte nicht abschließen.",
+          "created_at": "2026-04-28T09:10:00.000Z",
+          "author": {
+            "type": "user",
+            "id": "usr_501",
+            "name": "Demo User"
+          }
+        },
+        {
+          "id": "part_2",
+          "part_type": "comment",
+          "body": "Immer noch blockiert, Bezahlung scheitert mit Fehler 502.",
+          "created_at": "2026-04-28T09:14:12.000Z",
+          "author": {
+            "type": "user",
+            "id": "usr_501"
+          }
+        },
+        {
+          "id": "part_3",
+          "part_type": "comment",
+          "body": "Danke für die Meldung, wir untersuchen das.",
+          "created_at": "2026-04-28T09:20:44.000Z",
+          "author": {
+            "type": "admin",
+            "id": "adm_88",
+            "name": "Support Agent"
+          }
+        }
+      ],
+      "updates": [
+        {
+          "at": "2026-04-28T09:35:00.000Z",
+          "previous": { "state": "open", "assignee_id": null }
+        },
+        {
+          "at": "2026-04-28T10:05:19.000Z",
+          "previous": { "state": "open" }
+        }
+      ]
+    },
+    {
+      "id": "conv_9002",
+      "created_at": "2026-04-28T11:00:00.000Z",
+      "updated_at": "2026-04-28T11:05:00.000Z",
+      "state": "open",
+      "subject": "Versehentlich erstellt",
+      "contact": {
+        "type": "user",
+        "id": "usr_502"
+      },
+      "tags": [],
+      "parts": [],
+      "deleted_at": "2026-04-28T11:30:00.000Z"
+    },
+    {
+      "id": "conv_9003",
+      "created_at": "2026-04-22T08:30:00.000Z",
+      "updated_at": "2026-04-22T09:00:00.000Z",
+      "state": "open",
+      "subject": "Wann kommt SAML-SSO?",
+      "contact": {
+        "type": "user",
+        "id": "usr_503",
+        "name": "Eva Friedrich",
+        "email": "eva.friedrich@bigcorp.example"
+      },
+      "assignee_id": "adm_88",
+      "tags": ["enterprise", "sso", "saml"],
+      "parts": [
+        {
+          "id": "part_9003_1",
+          "part_type": "comment",
+          "body": "Unser Security-Team verlangt SAML-SSO, bevor wir die 50 Lizenzen auf alle Filialen ausrollen. Habt ihr einen Termin?",
+          "created_at": "2026-04-22T08:30:00.000Z",
+          "author": {
+            "type": "user",
+            "id": "usr_503",
+            "name": "Eva Friedrich"
+          }
+        },
+        {
+          "id": "part_9003_2",
+          "part_type": "comment",
+          "body": "Danke fürs Nachfragen — SSO ist auf der Roadmap für Q2 (Epic SHOP-201). Wir geben Bescheid, sobald ein konkretes Datum steht.",
+          "created_at": "2026-04-22T09:00:00.000Z",
+          "author": {
+            "type": "admin",
+            "id": "adm_88",
+            "name": "Support Agent"
+          }
+        }
+      ]
+    },
+    {
+      "id": "conv_9004",
+      "created_at": "2026-04-25T07:45:00.000Z",
+      "updated_at": "2026-04-25T07:45:00.000Z",
+      "state": "open",
+      "subject": "Mobile Dashboard zu langsam",
+      "contact": {
+        "type": "user",
+        "id": "usr_504",
+        "name": "Thomas Berger",
+        "email": "thomas.berger@retailer.example"
+      },
+      "tags": ["mobile", "performance", "field"],
+      "parts": [
+        {
+          "id": "part_9004_1",
+          "part_type": "comment",
+          "body": "Im Außendienst auf älteren Android-Geräten lädt das Dashboard 8-10 Sekunden — bei schwachem Mobilfunk teils gar nicht. Bitte priorisieren.",
+          "created_at": "2026-04-25T07:45:00.000Z",
+          "author": {
+            "type": "user",
+            "id": "usr_504",
+            "name": "Thomas Berger"
+          }
+        }
+      ]
+    },
+    {
+      "id": "conv_9005",
+      "created_at": "2026-04-26T10:15:00.000Z",
+      "updated_at": "2026-04-26T11:30:00.000Z",
+      "state": "closed",
+      "subject": "Kundenimport bricht ab",
+      "contact": {
+        "type": "user",
+        "id": "usr_505",
+        "name": "Sandra Möller",
+        "email": "ops.lead@kundenimport.example"
+      },
+      "assignee_id": "adm_88",
+      "tags": ["import", "data-quality"],
+      "parts": [
+        {
+          "id": "part_9005_1",
+          "part_type": "comment",
+          "body": "Beim Massenimport unserer 12.000 Kontakte bricht der Mapper ab — Fehler 'Required field missing in mapping table'. Wo liegt der Hänger?",
+          "created_at": "2026-04-26T10:15:00.000Z",
+          "author": {
+            "type": "user",
+            "id": "usr_505",
+            "name": "Sandra Möller"
+          }
+        },
+        {
+          "id": "part_9005_2",
+          "part_type": "comment",
+          "body": "Wir haben das Verhalten reproduziert (siehe SHOP-220). Pflichtfeldprüfung im Mapper wird in der nächsten Version ergänzt.",
+          "created_at": "2026-04-26T11:30:00.000Z",
+          "author": {
+            "type": "admin",
+            "id": "adm_88",
+            "name": "Support Agent"
+          }
+        }
+      ]
+    },
+    {
+      "id": "conv_9006",
+      "created_at": "2026-04-27T14:00:00.000Z",
+      "updated_at": "2026-04-27T14:05:00.000Z",
+      "state": "closed",
+      "subject": "Wie ändere ich mein Passwort?",
+      "contact": {
+        "type": "user",
+        "id": "usr_506",
+        "name": "Lukas Reiter",
+        "email": "lukas.reiter@example.com"
+      },
+      "tags": ["faq", "account"],
+      "parts": [
+        {
+          "id": "part_9006_1",
+          "part_type": "comment",
+          "body": "Hi, ich finde die Passwort-Ändern-Funktion nicht.",
+          "created_at": "2026-04-27T14:00:00.000Z",
+          "author": {
+            "type": "user",
+            "id": "usr_506",
+            "name": "Lukas Reiter"
+          }
+        },
+        {
+          "id": "part_9006_2",
+          "part_type": "comment",
+          "body": "Profil-Icon → Einstellungen → Passwort. Viel Erfolg!",
+          "created_at": "2026-04-27T14:05:00.000Z",
+          "author": {
+            "type": "admin",
+            "id": "adm_88",
+            "name": "Support Agent"
+          }
+        }
+      ]
+    }
+  ],
+  "contacts": [
+    { "id": "usr_501", "name": "Demo User", "email": "demo.user@example.com" },
+    { "id": "usr_502" },
+    { "id": "usr_503", "name": "Eva Friedrich", "email": "eva.friedrich@bigcorp.example" },
+    { "id": "usr_504", "name": "Thomas Berger", "email": "thomas.berger@retailer.example" },
+    { "id": "usr_505", "name": "Sandra Möller", "email": "ops.lead@kundenimport.example" },
+    { "id": "usr_506", "name": "Lukas Reiter", "email": "lukas.reiter@example.com" }
+  ],
+  "agents": [{ "id": "adm_88", "name": "Support Agent" }]
+}

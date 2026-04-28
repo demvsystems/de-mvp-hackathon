@@ -1,0 +1,115 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "description": "Gold-standard cross-channel red lines for the connector fixture set. Each cluster lists the records that should be linked across sources. The 'noise' list flags records that must NOT be grouped into any cluster. Records are referenced by source + their fixture-local external_id (intercom: conversation.id, jira: issue.key, slack: top-level content.id, upvoty: post.id).",
+    "fixtures": ["intercom.json", "jira.json", "slack.json", "upvoty.json"]
+  },
+  "clusters": [
+    {
+      "id": "cluster_checkout_502",
+      "label": "Checkout 502 / Firmenkreditkarte",
+      "description": "Payment-Gateway-Timeout (502) bei Checkout mit Firmenkreditkarte; Lieferadresse-Persistenz fehlt zusätzlich.",
+      "evidence_keywords": [
+        "Checkout",
+        "502",
+        "Firmenkreditkarte",
+        "Lieferadresse",
+        "SHOP-142",
+        "conv_9001"
+      ],
+      "members": [
+        { "source": "intercom", "external_id": "conv_9001" },
+        { "source": "jira", "external_id": "SHOP-142" },
+        { "source": "slack", "external_id": "msg_004" },
+        { "source": "upvoty", "external_id": "post_2004" }
+      ]
+    },
+    {
+      "id": "cluster_enterprise_sso",
+      "label": "Enterprise SAML-SSO",
+      "description": "Enterprise-Kunden fordern SAML-SSO als Voraussetzung für Lizenz-Rollouts.",
+      "evidence_keywords": ["SSO", "SAML", "Enterprise", "SHOP-201", "post_2001", "conv_9003"],
+      "members": [
+        { "source": "upvoty", "external_id": "post_2001" },
+        { "source": "intercom", "external_id": "conv_9003" },
+        { "source": "jira", "external_id": "SHOP-201" },
+        { "source": "slack", "external_id": "msg_005" }
+      ]
+    },
+    {
+      "id": "cluster_mobile_dashboard_perf",
+      "label": "Mobile Dashboard Performance",
+      "description": "Außendienst-User auf älteren Android-Geräten erleben 8-10s Ladezeiten im Dashboard.",
+      "evidence_keywords": [
+        "Mobile",
+        "Dashboard",
+        "Performance",
+        "Android",
+        "SHOP-205",
+        "post_2002",
+        "conv_9004"
+      ],
+      "members": [
+        { "source": "upvoty", "external_id": "post_2002" },
+        { "source": "intercom", "external_id": "conv_9004" },
+        { "source": "jira", "external_id": "SHOP-205" },
+        { "source": "slack", "external_id": "msg_006" }
+      ]
+    },
+    {
+      "id": "cluster_customer_import_mapping",
+      "label": "Customer-Import / Mapping-Datenqualität",
+      "description": "Massenimport scheitert wegen fehlender Pflichtfeldprüfung im Mapper.",
+      "evidence_keywords": [
+        "Kundenimport",
+        "Mapping",
+        "Pflichtfeld",
+        "Zuordnungstabelle",
+        "SHOP-220",
+        "conv_9005"
+      ],
+      "members": [
+        { "source": "slack", "external_id": "msg_002" },
+        { "source": "intercom", "external_id": "conv_9005" },
+        { "source": "jira", "external_id": "SHOP-220" }
+      ]
+    },
+    {
+      "id": "cluster_tariflogik_regression",
+      "label": "Tariflogik-Regressionstests",
+      "description": "QA fordert Regressionstest-Suite gegen die letzten drei Kundenfälle der Tariflogik.",
+      "evidence_keywords": ["Tariflogik", "Regressionstest", "QA", "SHOP-240"],
+      "members": [
+        { "source": "slack", "external_id": "msg_001" },
+        { "source": "jira", "external_id": "SHOP-240" }
+      ]
+    }
+  ],
+  "noise": [
+    {
+      "source": "intercom",
+      "external_id": "conv_9002",
+      "reason": "Tombstone — leere versehentlich erstellte Conversation"
+    },
+    {
+      "source": "intercom",
+      "external_id": "conv_9006",
+      "reason": "Generische Passwort-FAQ ohne Bezug zu einem Cluster"
+    },
+    {
+      "source": "jira",
+      "external_id": "BILLING-77",
+      "reason": "Infra-Ticket TLS-Zertifikat — kein Produktbezug"
+    },
+    {
+      "source": "slack",
+      "external_id": "msg_003",
+      "reason": "Tombstone — Release-Reminder ohne Cluster-Bezug"
+    },
+    {
+      "source": "upvoty",
+      "external_id": "post_2003",
+      "reason": "Tombstone — versehentlicher Doppel-Eintrag"
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import { assertContractValid, serializeEmission, type Emission } from '../core';
 import { map } from './handle';
 import { channelId, messageId } from './ids';
 
-const MOCK = join(process.cwd(), '../../apps/playground/Dummyfiles/slack.json');
+const MOCK = join(process.cwd(), '../../fixtures/slack.json');
 const FROZEN_NOW = '2026-04-28T09:00:00.000Z';
 
 async function loadMock(): Promise<unknown> {
@@ -81,17 +81,17 @@ describe('slack mapper', () => {
     const records = emissions.filter((e) => e.event_type === 'record.observed');
     const edges = emissions.filter((e) => e.event_type === 'edge.observed');
 
-    // 1 Channel + 4 Teilnehmer + 6 Messages (3 Top-Level + 3 Thread-Replies)
-    expect(records).toHaveLength(11);
+    // 1 Channel + 4 Teilnehmer + 10 Messages (6 Top-Level + 4 Thread-Replies)
+    expect(records).toHaveLength(15);
 
-    // Pro Message: posted_in + authored_by = 12, plus 3 replies_to.
+    // Pro Message: posted_in + authored_by = 20, plus 4 replies_to.
     // mentions-Edges werden vom Connector nicht emittiert (Z7 / Mention-Extractor).
-    expect(edges).toHaveLength(15);
+    expect(edges).toHaveLength(24);
 
     expect(
       records.find((e) => e.subject_id.endsWith(':channel:hackathon/C111PRODUCT1')),
     ).toBeDefined();
-    expect(edges.filter((e) => e.subject_id.includes(':replies_to:'))).toHaveLength(3);
+    expect(edges.filter((e) => e.subject_id.includes(':replies_to:'))).toHaveLength(4);
     expect(edges.filter((e) => e.subject_id.includes(':mentions:'))).toHaveLength(0);
   });
 

@@ -5,7 +5,7 @@ import { assertContractValid, serializeEmission, type Emission } from '../core';
 import { map } from './handle';
 import { issueId } from './ids';
 
-const MOCK = join(process.cwd(), '../../apps/playground/Dummyfiles/jira.json');
+const MOCK = join(process.cwd(), '../../fixtures/jira.json');
 const FROZEN_NOW = '2026-04-28T09:00:00.000Z';
 
 async function loadMock(): Promise<unknown> {
@@ -83,15 +83,25 @@ describe('jira mapper', () => {
     const records = emissions.filter((e) => e.event_type === 'record.observed');
     const edges = emissions.filter((e) => e.event_type === 'edge.observed');
 
-    expect(records).toHaveLength(4);
-    expect(edges).toHaveLength(4);
+    // 2 projects (SHOP, BILLING) + 1 board + 1 sprint + 6 issues = 10
+    expect(records).toHaveLength(10);
 
     expect(records.map((e) => e.subject_id).sort()).toEqual([
       'jira:board:84',
+      'jira:issue:BILLING-77',
       'jira:issue:SHOP-142',
+      'jira:issue:SHOP-201',
+      'jira:issue:SHOP-205',
+      'jira:issue:SHOP-220',
+      'jira:issue:SHOP-240',
+      'jira:project:BILLING',
       'jira:project:SHOP',
       'jira:sprint:123',
     ]);
+
+    // board→project (1) + sprint→board (1) + issue→project (6) + issue→sprint (5,
+    // BILLING-77 hat keinen Sprint) = 13
+    expect(edges).toHaveLength(13);
 
     expect(
       edges.find((e) => e.subject_id.startsWith('edge:belongs_to_sprint:jira:issue:SHOP-142')),

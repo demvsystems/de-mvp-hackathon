@@ -5,7 +5,7 @@ describe('template loader', () => {
   it('loads slack template from configured path', async () => {
     const loaded = await loadTemplateForSource('slack');
     expect(loaded.status).toBe('loaded');
-    expect(loaded.templatePath).toBe('apps/playground/Dummyfiles/fixture-base-Template/slack.json');
+    expect(loaded.templatePath).toBe('fixtures/slack.json');
     expect(loaded.metadata.topLevelFields).toContain('content');
   });
 

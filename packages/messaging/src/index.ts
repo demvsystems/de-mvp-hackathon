@@ -6,6 +6,7 @@ export { closeConnection } from './connection';
 export {
   provisionStream,
   provisionConsumer,
+  deleteConsumer,
   STREAM_NAME,
   STREAM_SUBJECTS,
   type ConsumerOptions,

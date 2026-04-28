@@ -27,7 +27,12 @@ describe('fixture metadata extraction', () => {
     expect(inferDetectedObjectType({ channel: {}, content: [] })).toBe(
       'slack-channel-conversation',
     );
-    expect(inferDetectedObjectType({ posts: [], votes: [] })).toBe('upvoty-polling-snapshot');
+    expect(inferDetectedObjectType({ conversations: [], contacts: [] })).toBe(
+      'intercom-conversation-snapshot',
+    );
+    expect(inferDetectedObjectType({ boards: [], users: [], posts: [] })).toBe(
+      'upvoty-feedback-snapshot',
+    );
   });
 
   it('builds a truncated preview', () => {

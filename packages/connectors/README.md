@@ -44,13 +44,13 @@ Pro Source ein Sub-Folder (`slack/`, `jira/`, `intercom/`, `upvoty/`) mit:
 
 ```bash
 # Preview (stdout, kein NATS nötig)
-pnpm --filter @repo/connectors run slack ../../apps/playground/Dummyfiles
-pnpm --filter @repo/connectors run jira  ../../apps/playground/Dummyfiles
+pnpm --filter @repo/connectors run slack ../../fixtures
+pnpm --filter @repo/connectors run jira  ../../fixtures
 
 # Echtes Publishing ans Bus
 docker compose up -d nats        # NATS muss laufen
 pnpm --filter @repo/messaging provision   # Stream und Demo-Consumer einmal anlegen
-pnpm --filter @repo/connectors run slack ../../apps/playground/Dummyfiles --publish
+pnpm --filter @repo/connectors run slack ../../fixtures --publish
 ```
 
 ## Tests
@@ -59,4 +59,4 @@ pnpm --filter @repo/connectors run slack ../../apps/playground/Dummyfiles --publ
 pnpm --filter @repo/connectors test
 ```
 
-Slack/Jira testen gegen die echten Mocks unter `apps/playground/Dummyfiles/`. Intercom/Upvoty haben Inline-Fixtures, weil reale Mocks noch fehlen.
+Slack/Jira testen gegen die echten Mocks unter `fixtures/`. Intercom/Upvoty haben Inline-Fixtures, weil reale Mocks noch fehlen.

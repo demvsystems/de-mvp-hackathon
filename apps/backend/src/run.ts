@@ -2,25 +2,10 @@ import { parseArgs } from 'node:util';
 import { isAbsolute, resolve } from 'node:path';
 import { watch, type FSWatcher } from 'node:fs';
 import type { ConnectorSpec } from '@repo/connectors';
-import {
-  closeConnection,
-  createSubscriber,
-  provisionConsumer,
-  provisionStream,
-  type ConsumerOptions,
-  type Subscriber,
-} from '@repo/messaging';
+import { closeConnection, provisionStream } from '@repo/messaging';
 import { connectors, sourceNames } from './registry';
-
-interface SubscriberWorker {
-  consumer: ConsumerOptions;
-  register: (sub: Subscriber) => void;
-}
-
-interface SubscriberWorkerSpec {
-  load: () => Promise<SubscriberWorker>;
-  requiredEnv?: readonly string[];
-}
+import { WorkerRegistry, type SubscriberWorkerSpec } from './workers';
+import { startControlServer } from './control-server';
 
 // Lazy-loaded so a worker subset doesn't drag in unrelated env requirements
 // (e.g. running `--workers connectors` shouldn't need DATABASE_URL via the
@@ -47,15 +32,6 @@ const SUBSCRIBER_WORKERS: Record<string, SubscriberWorkerSpec> = {
 };
 
 const ALL_WORKERS = ['connectors', ...Object.keys(SUBSCRIBER_WORKERS)];
-
-async function startSubscriberWorker(name: string, mod: SubscriberWorker): Promise<Subscriber> {
-  await provisionConsumer(mod.consumer);
-  const sub = createSubscriber({ consumer: mod.consumer.durable_name });
-  mod.register(sub);
-  console.error(`[backend] starting ${name} (consumer "${mod.consumer.durable_name}")`);
-  void sub.start().catch((err) => console.error(`[backend] ${name} stopped on error:`, err));
-  return sub;
-}
 
 async function replay(spec: ConnectorSpec<unknown>, dir: string): Promise<void> {
   for await (const item of spec.read(dir).items()) {
@@ -112,13 +88,17 @@ async function main(): Promise<void> {
     allowPositionals: true,
   });
 
-  const selectedWorkers = values.workers
-    ? values.workers
-        .split(',')
-        .map((w) => w.trim())
-        .filter(Boolean)
-    : ALL_WORKERS;
-  for (const w of selectedWorkers) {
+  // Default: everything except the embedder (Azure cost). Pass `--workers a,b`
+  // to override; pass `--workers ''` to start nothing and toggle via the admin
+  // dashboard.
+  const autoStart =
+    values.workers !== undefined
+      ? values.workers
+          .split(',')
+          .map((w) => w.trim())
+          .filter(Boolean)
+      : ALL_WORKERS.filter((w) => w !== 'embedder');
+  for (const w of autoStart) {
     if (!ALL_WORKERS.includes(w)) {
       console.error(`unknown worker: ${w}. available: ${ALL_WORKERS.join(', ')}`);
       process.exit(2);
@@ -127,28 +107,32 @@ async function main(): Promise<void> {
 
   await provisionStream();
 
-  const subscribers: { name: string; sub: Subscriber }[] = [];
-  for (const name of selectedWorkers) {
-    if (name === 'connectors') continue;
-    const spec = SUBSCRIBER_WORKERS[name]!;
-    const missing = (spec.requiredEnv ?? []).filter((k) => !process.env[k]);
-    if (missing.length > 0) {
-      console.error(`[backend] skipping ${name}: missing env ${missing.join(', ')}`);
-      continue;
-    }
-    const mod = await spec.load();
-    const sub = await startSubscriberWorker(name, mod);
-    subscribers.push({ name, sub });
+  const registry = new WorkerRegistry();
+  for (const [name, spec] of Object.entries(SUBSCRIBER_WORKERS)) {
+    registry.register(name, spec);
   }
 
+  for (const name of autoStart) {
+    if (name === 'connectors') continue;
+    try {
+      await registry.start(name);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[backend] skipping ${name}: ${msg}`);
+    }
+  }
+
+  const controlPort = Number(process.env['BACKEND_CONTROL_PORT'] ?? 3100);
+  const controlServer = startControlServer(registry, controlPort);
+
   let connectorsHandle: { stop: () => void } | null = null;
-  if (selectedWorkers.includes('connectors')) {
+  if (autoStart.includes('connectors')) {
     const cwd = process.env['INIT_CWD'] ?? process.cwd();
     const baseDir = values.data
       ? isAbsolute(values.data)
         ? values.data
         : resolve(cwd, values.data)
-      : resolve(cwd, 'apps/playground/Dummyfiles');
+      : resolve(cwd, 'fixtures');
 
     const selectedSources = values.source ? [values.source] : sourceNames;
     for (const s of selectedSources) {
@@ -164,23 +148,17 @@ async function main(): Promise<void> {
     });
   }
 
-  const stayAlive = subscribers.length > 0 || (values.watch ?? false);
-  if (!stayAlive) {
-    await closeConnection();
-    return;
-  }
-
-  if (subscribers.length > 0) {
-    console.error(`[backend] running ${subscribers.length} subscriber(s); Ctrl+C to drain`);
-  } else {
-    console.error('[backend] watching connectors; Ctrl+C to exit');
-  }
+  console.error(
+    `[backend] running ${registry.list().filter((w) => w.state === 'running').length} subscriber(s); Ctrl+C to drain`,
+  );
 
   await new Promise<void>((resolveShutdown) => {
     const shutdown = (signal: string): void => {
       console.error(`[backend] received ${signal}, draining`);
       connectorsHandle?.stop();
-      Promise.all(subscribers.map((s) => s.sub.stop()))
+      controlServer.close();
+      registry
+        .stopAll()
         .catch((err) => console.error('[backend] stop error:', err))
         .finally(() => closeConnection().finally(() => resolveShutdown()));
     };

@@ -10,18 +10,18 @@ export interface FixtureSourceDef {
 export const FIXTURE_SOURCE_DEFS: Record<FixtureSource, FixtureSourceDef> = {
   jira: {
     source: 'jira',
-    templateRelativePath: 'apps/playground/Dummyfiles/fixture-base-Template/jira.json',
+    templateRelativePath: 'fixtures/jira.json',
   },
   slack: {
     source: 'slack',
-    templateRelativePath: 'apps/playground/Dummyfiles/fixture-base-Template/slack.json',
+    templateRelativePath: 'fixtures/slack.json',
   },
   upvoty: {
     source: 'upvoty',
-    templateRelativePath: 'apps/playground/Dummyfiles/upvoty-polling-examples.json',
+    templateRelativePath: 'fixtures/upvoty.json',
   },
   intercom: {
     source: 'intercom',
-    templateRelativePath: 'apps/playground/Dummyfiles/intercom-webhook-examples.json',
+    templateRelativePath: 'fixtures/intercom.json',
   },
 };
