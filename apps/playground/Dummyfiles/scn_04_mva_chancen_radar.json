@@ -1,0 +1,55 @@
+{
+  "metadata": {
+    "parent_file": "apps/playground/Tom/pwx_signal_scenarios.json",
+    "version": "1.0.0",
+    "language": "de"
+  },
+  "scenario": {
+    "id": "scn_04_mva_chancen_radar",
+    "title": "Das unterschaetzte Differenzierungsmerkmal",
+    "cluster": "mva_ki_feature",
+    "theme": "MVA erzeugt starke positive Resonanz als Differenzierungsmerkmal, wird aber zu wenig zentral kommuniziert.",
+    "timeframe": {
+      "first_signal": "2026_q1",
+      "escalation": "2026_q1"
+    },
+    "signal_sources": [
+      "intercom",
+      "slack_internal",
+      "facebook",
+      "webinar_feedback",
+      "meeting_transcript"
+    ],
+    "signal_density": {
+      "intercom_threads": 2,
+      "facebook_posts": 4,
+      "slack_messages": 1,
+      "webinar_feedback_batches": 1,
+      "meeting_transcripts": 1
+    },
+    "core_causal_chain": [
+      "mva_positives_feedback_mehrkanalig",
+      "effizienzgewinn_sichtbar",
+      "datenschutzfragen_als_teilthema",
+      "marketing_und_sales_nutzen_signal_zu_schwach"
+    ],
+    "business_impact": {
+      "impact_type": ["win_rate", "brand_positioning", "go_to_market"],
+      "severity": "medium_high",
+      "evidence": [
+        "won_deal_durch_mva",
+        "300_teilnehmer_webinar_mit_hohem_positivsignal",
+        "facebook_resonanz"
+      ]
+    },
+    "existing_artifacts": [],
+    "agent_expected_outcome": {
+      "cluster_type": "positives_chancencluster",
+      "recommended_actions": [
+        "mva_prominent_auf_website",
+        "datenschutz_faq_ausbauen",
+        "sales_opener_mit_mva_standardisieren"
+      ]
+    }
+  }
+}

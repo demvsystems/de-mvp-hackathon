@@ -1,0 +1,64 @@
+{
+  "metadata": {
+    "parent_file": "apps/playground/Tom/pwx_signal_scenarios.json",
+    "version": "1.0.0",
+    "language": "de"
+  },
+  "scenario": {
+    "id": "scn_05_onboarding_abwaertsspirale",
+    "title": "Die leise Abwaertsspirale",
+    "cluster": "onboarding_friction",
+    "theme": "Fruhe Onboarding-Huerden fuehren zu stillem Rueckzug; Signale sind verteilt und werden nicht zentral priorisiert.",
+    "timeframe": {
+      "first_signal": "2025_q2",
+      "escalation": "2026_q1"
+    },
+    "signal_sources": [
+      "intercom",
+      "slack_internal",
+      "facebook",
+      "jira",
+      "support_metrics",
+      "meeting_transcript"
+    ],
+    "signal_density": {
+      "intercom_threads": 2,
+      "facebook_posts": 3,
+      "slack_messages": 1,
+      "jira_tickets": 1,
+      "support_metrics_records": 1,
+      "meeting_transcripts": 1
+    },
+    "core_causal_chain": [
+      "vertragsimport_und_policenassistent_friction",
+      "hilfe_content_veraltet",
+      "kunden_melden_selten_direkt",
+      "stuck_deals_und_verzoegerte_aktivierung"
+    ],
+    "business_impact": {
+      "impact_type": ["activation_delay", "conversion_drop", "churn_risk"],
+      "severity": "high",
+      "evidence": [
+        "42_onboarding_tickets_nur_8_kundeninitiiert",
+        "19_tage_bis_produktive_nutzung_gegen_ziel_7",
+        "jira_low_und_unzugewiesen"
+      ]
+    },
+    "existing_artifacts": [
+      {
+        "type": "jira",
+        "id": "demv_4321",
+        "current_priority": "low",
+        "status": "unassigned"
+      }
+    ],
+    "agent_expected_outcome": {
+      "cluster_type": "strukturelles_onboarding_problem",
+      "recommended_actions": [
+        "hilfe_content_priorisiert_aktualisieren",
+        "onboarding_termine_in_ersten_7_tagen_verbindlich",
+        "stuck_deal_friction_label_im_crm"
+      ]
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "metadata": {
+    "parent_file": "apps/playground/Tom/pwx_signal_scenarios.json",
+    "version": "1.0.0",
+    "language": "de"
+  },
+  "scenario": {
+    "id": "scn_03_provision_einwand",
+    "title": "Der Aepfel-Birnen-Einwand",
+    "cluster": "provision_kv_konditionen",
+    "theme": "Konditions-Einwand basiert oft auf falschem Vergleich AO versus Pool; bekannte Loesung wird inkonsistent kommuniziert.",
+    "timeframe": {
+      "first_signal": "2026_q1",
+      "escalation": "2026_q1"
+    },
+    "signal_sources": ["intercom", "slack_internal", "facebook", "crm_note", "meeting_transcript"],
+    "signal_density": {
+      "intercom_threads": 2,
+      "facebook_posts": 2,
+      "slack_messages": 1,
+      "crm_notes": 1,
+      "meeting_transcripts": 1
+    },
+    "core_causal_chain": [
+      "ao_pool_vergleich_fehlt_einordnung",
+      "einwand_mb_zu_niedrig",
+      "direktvereinbarung_nicht_konsistent_erklaert",
+      "lost_deals_wegen_positionierungsluecke"
+    ],
+    "business_impact": {
+      "impact_type": ["sales_conversion", "enablement_gap", "revenue_loss"],
+      "severity": "high",
+      "evidence": [
+        "12_von_38_lost_deals_q1",
+        "67_prozent_ao_wechsler_anteil",
+        "nur_3_von_8_dokumentierte_loesungshinweise"
+      ]
+    },
+    "existing_artifacts": [
+      {
+        "type": "crm_metric",
+        "id": "lost_deals_q1_2026",
+        "current_priority": "implicit",
+        "status": "not_systematized"
+      }
+    ],
+    "agent_expected_outcome": {
+      "cluster_type": "wiederkehrendes_einwandmuster",
+      "recommended_actions": [
+        "argumentations_framework_standardisieren",
+        "intercom_antworten_vereinheitlichen",
+        "einwand_typ_im_crm_pflichtfeld"
+      ]
+    }
+  }
+}

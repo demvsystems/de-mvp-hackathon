@@ -1,0 +1,56 @@
+{
+  "metadata": {
+    "parent_file": "apps/playground/Tom/pwx_signal_scenarios.json",
+    "version": "1.0.0",
+    "language": "de"
+  },
+  "scenario": {
+    "id": "scn_02_exchange_blockade",
+    "title": "Die IT-seitige Blockade",
+    "cluster": "exchange_shared_mailbox",
+    "theme": "Einfuehrungen scheitern in Bueros mit IT-Abteilung an fehlender Exchange- und Shared-Mailbox-Integration.",
+    "timeframe": {
+      "first_signal": "2025_q3",
+      "escalation": "2026_q1"
+    },
+    "signal_sources": ["intercom", "slack_internal", "facebook", "jira", "meeting_transcript"],
+    "signal_density": {
+      "intercom_threads": 3,
+      "facebook_posts": 1,
+      "slack_messages": 1,
+      "jira_tickets": 1,
+      "meeting_transcripts": 1
+    },
+    "core_causal_chain": [
+      "fehlende_exchange_integration",
+      "it_admin_blockiert_einfuehrung",
+      "lost_deals_steigen",
+      "crm_untererfasst_it_einwaende"
+    ],
+    "business_impact": {
+      "impact_type": ["segment_loss", "revenue_risk", "adoption_blocker"],
+      "severity": "high",
+      "evidence": [
+        "lost_deal_mit_it_admin_killerkriterium",
+        "mehrere_sales_signale",
+        "jira_ohne_verknuepfte_support_tickets"
+      ]
+    },
+    "existing_artifacts": [
+      {
+        "type": "jira",
+        "id": "demv_3891",
+        "current_priority": "medium",
+        "status": "backlog_ungeschaetzt"
+      }
+    ],
+    "agent_expected_outcome": {
+      "cluster_type": "strukturelles_segment_problem",
+      "recommended_actions": [
+        "lost_deals_it_blockade_labeln",
+        "exchange_strategisch_priorisieren",
+        "roi_verlust_pro_quartal_berechnen"
+      ]
+    }
+  }
+}
