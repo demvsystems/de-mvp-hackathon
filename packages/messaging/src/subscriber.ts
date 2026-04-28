@@ -5,11 +5,12 @@ import {
   type JsMsg,
 } from '@nats-io/jetstream';
 import { getConnection } from './connection';
+import { EventEnvelope, type EventEnvelope as Envelope } from './envelope';
 import type { EventDefinition } from './event';
-import { STREAM_NAME, CONSUMER_NAME } from './topology';
+import { STREAM_NAME } from './topology';
 
 export interface MessageContext {
-  readonly subject: string;
+  readonly envelope: Envelope;
   readonly seq: number;
   readonly deliveryCount: number;
 }
@@ -17,8 +18,7 @@ export interface MessageContext {
 type Handler<T> = (payload: T, ctx: MessageContext) => Promise<void> | void;
 
 interface HandlerEntry {
-  subject: string;
-  parse: (raw: unknown) => unknown;
+  payload_schema: { parse: (raw: unknown) => unknown };
   handle: Handler<unknown>;
 }
 
@@ -29,15 +29,14 @@ export class Subscriber {
   private running = false;
   private current: ConsumerMessages | null = null;
 
-  constructor(opts: { stream?: string; consumer?: string } = {}) {
+  constructor(opts: { stream?: string; consumer: string }) {
     this.stream = opts.stream ?? STREAM_NAME;
-    this.consumer = opts.consumer ?? CONSUMER_NAME;
+    this.consumer = opts.consumer;
   }
 
   on<T>(event: EventDefinition<T>, handler: Handler<T>): this {
-    this.handlers.set(event.subject, {
-      subject: event.subject,
-      parse: (raw) => event.schema.parse(raw),
+    this.handlers.set(event.event_type, {
+      payload_schema: event.payload,
       handle: handler as Handler<unknown>,
     });
     return this;
@@ -81,31 +80,45 @@ export class Subscriber {
   }
 
   private async dispatch(m: JsMsg): Promise<void> {
-    const entry = this.handlers.get(m.subject);
-    if (!entry) {
-      console.warn(`[messaging] no handler for ${m.subject} seq=${m.seq}, term`);
+    let envelope: Envelope;
+    try {
+      envelope = EventEnvelope.parse(JSON.parse(m.string()));
+    } catch (err) {
+      console.error(`[messaging] invalid envelope ${m.subject} seq=${m.seq}, term`, err);
       m.term();
+      return;
+    }
+
+    const entry = this.handlers.get(envelope.event_type);
+    if (!entry) {
+      m.ack();
       return;
     }
 
     let payload: unknown;
     try {
-      payload = entry.parse(JSON.parse(m.string()));
+      payload = entry.payload_schema.parse(envelope.payload);
     } catch (err) {
-      console.error(`[messaging] invalid payload ${m.subject} seq=${m.seq}, term`, err);
+      console.error(
+        `[messaging] invalid payload event_type=${envelope.event_type} seq=${m.seq}, term`,
+        err,
+      );
       m.term();
       return;
     }
 
     try {
       await entry.handle(payload, {
-        subject: m.subject,
+        envelope,
         seq: m.seq,
         deliveryCount: m.info.deliveryCount,
       });
       m.ack();
     } catch (err) {
-      console.error(`[messaging] handler failed ${m.subject} seq=${m.seq}, nak`, err);
+      console.error(
+        `[messaging] handler failed event_type=${envelope.event_type} seq=${m.seq}, nak`,
+        err,
+      );
       m.nak();
     }
   }
@@ -125,7 +138,7 @@ export class Subscriber {
   }
 }
 
-export function createSubscriber(opts?: { stream?: string; consumer?: string }): Subscriber {
+export function createSubscriber(opts: { stream?: string; consumer: string }): Subscriber {
   return new Subscriber(opts);
 }
 
