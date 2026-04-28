@@ -17,7 +17,12 @@ const REPO_ROOT = resolve(__dirname, '../../..');
 const RUBRIC_PATH = resolve(REPO_ROOT, 'eval/rubric.yaml');
 const GOLDEN_DIR = resolve(REPO_ROOT, 'eval/golden');
 
-const liveDeps = Boolean(process.env['DATABASE_URL_EVAL'] && process.env['ANTHROPIC_API_KEY']);
+// Opt-in only: hits a live Anthropic API + Postgres on every run, so it must
+// not fire from pre-push or CI by accident. Set EVAL_LIVE=1 alongside the
+// credentials to actually run it.
+const liveDeps =
+  process.env['EVAL_LIVE'] === '1' &&
+  Boolean(process.env['DATABASE_URL_EVAL'] && process.env['ANTHROPIC_API_KEY']);
 
 describe('rubric scaffolding', () => {
   it('loads rubric.yaml and parses every criterion', async () => {
