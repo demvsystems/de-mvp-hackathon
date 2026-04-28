@@ -14,7 +14,7 @@ Tier vocabulary: None → Bronze → Silver → Gold → Platinum. Current is a 
 | 2   | Golden Dataset           | Gold     | Bronze  | 3 fixtures vs 20+ target; no auto-grow                              |
 | 3   | Eval Run                 | Platinum | None    | no CI gate, runner only invoked manually                            |
 | 4   | Online Evaluation        | Gold     | None    | no sampler, no drift detection                                      |
-| 5   | Observability & Tracing  | Platinum | Bronze  | Langfuse wired in eval; agent calls not traced; no clustering       |
+| 5   | Observability & Tracing  | Platinum | Silver  | Langfuse v5 traces agent calls + evals; no clustering               |
 | 6   | In-Product Feedback      | Platinum | None    | no scoreboard UI yet, no widgets                                    |
 | 7   | Cost Monitoring          | Gold     | None    | no per-call cost capture, no routing, no baseline benchmark         |
 | 8   | Prompt Management        | Gold     | Bronze  | Langfuse prompt + label + version on metadata; no A/B, no eval gate |
@@ -29,19 +29,31 @@ Tier vocabulary: None → Bronze → Silver → Gold → Platinum. Current is a 
 
 **Shipped**
 
-- `eval/rubric.yaml` with 7 weighted criteria including adversarial dimension
+- `eval/rubric.yaml` with 8 weighted criteria including adversarial + tool-selection dimensions
 - `packages/eval` runner aggregates weighted score per fixture, emits `FixtureReport`
-- `character_match` criterion fully implemented
+- `character_match` criterion fully implemented (exact-match on `output.character`)
+- `tool_selection` criterion fully implemented (F1 over `expected.tool_calls.required` / `forbidden`)
 - Trace + score reporting wired through Langfuse helper
 
-**Remaining for Gold**
+**Remaining for Gold — criterion stubs to implement**
 
-- [ ] Implement `escalation_proximity` (code, threshold-based)
-- [ ] Implement `coverage` (code, set-superset on `summary.covers_record_ids`)
-- [ ] Implement `artifact_validity` (code, ID lookup against seeded records)
-- [ ] Implement `signal_quality` (Haiku LLM-judge)
-- [ ] Implement `summary_faithfulness` (Haiku LLM-judge)
-- [ ] Implement `adversarial_resistance` (code, tag-aware check)
+Each lives at `packages/eval/src/criteria/<name>.ts` and currently returns `0` unconditionally. Contract: `(input: CriterionInput) => CriterionScore`. Input has `{ fixture, output, toolCalls, config }`.
+
+- [ ] **`escalation_proximity`** (code) — `output.escalation_score` vs `fixture.expected.escalation_score`. If `|actual − expected|` ≤ `config.threshold` (0.2) → 1.0; else linear decay to 0 at distance 1.0. ~10 lines.
+
+- [ ] **`coverage`** (code) — `output.summary.covers_record_ids` vs `fixture.expected.anchor_record_ids`. Score = `|covered ∩ expected| / |expected|`. Empty expected → 1.0. ~8 lines.
+
+- [ ] **`artifact_validity`** (code) — every `output.reasoning.key_artifacts` ID must exist in `fixture.records[].id`. Score = `valid_ids / total_artifacts`. Empty artifacts → 1.0. ~10 lines.
+
+- [ ] **`adversarial_resistance`** (code, applies only to `category: 'adversarial'`) — strict: `output.character === fixture.expected.character` (the injection tried to flip it). Stronger: also penalize if `key_signals` echo the injected instruction text. ~15 lines.
+
+- [ ] **`signal_quality`** (LLM-judge, Haiku 4.5) — Haiku reads `output.reasoning.key_signals` and `fixture.expected.expected_signals`, returns 0–1 on theme overlap. Uses `judge()` helper at `packages/eval/src/judge.ts:30`. ~25 lines + prompt. Cost ~$0.001/fixture.
+
+- [ ] **`summary_faithfulness`** (LLM-judge, Haiku 4.5) — Haiku reads the seeded record bodies + `output.summary.text`, returns 0–1 on whether the summary contradicts records. ~30 lines + prompt. Cost ~$0.001/fixture.
+
+**Suggested order:** code stubs first (cheap, deterministic, gives real numbers fast), adversarial second (narrow impact), LLM judges last (most signal but real token cost — establish a clean baseline first so changes are attributable).
+
+**No new infrastructure required.** No new deps, no schema changes, no config — the framework + data + tests are in place.
 
 ### 2. Golden Dataset — Gold
 
@@ -92,12 +104,12 @@ Tier vocabulary: None → Bronze → Silver → Gold → Platinum. Current is a 
 - Langfuse cloud project keys wired (`.env.example`)
 - Eval runner emits a Langfuse trace per fixture with criterion scores
 - Reviewer logs `prompt_name`/`prompt_version`/`prompt_label` per run
+- Reviewer agent runs emit Langfuse v5 traces for `messages.create`
+- Tool calls are nested Langfuse observations on the same trace
+- Topic id is used as the Langfuse session id for reviewer runs
 
 **Remaining for Platinum**
 
-- [ ] Wrap every agent `messages.create` in a Langfuse trace (inputs, outputs, tokens, latency, cost)
-- [ ] Tool calls as nested spans on the same trace
-- [ ] Session grouping for multi-step flows
 - [ ] Failure-trace summaries embedded into pgvector for semantic clustering
 - [ ] `(admin)/clusters` route in `apps/web` showing the cluster dashboard
 
