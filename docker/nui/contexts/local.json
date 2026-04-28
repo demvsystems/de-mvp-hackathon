@@ -1,0 +1,4 @@
+{
+  "name": "local",
+  "url": "nats://nats:4222"
+}
