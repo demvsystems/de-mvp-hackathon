@@ -1,9 +1,16 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { Langfuse } from 'langfuse';
+import {
+  Langfuse,
+  type LangfusePromptClient,
+  type LangfuseGenerationClient,
+  type LangfuseSpanClient,
+  type LangfuseTraceClient,
+} from 'langfuse';
 import { z } from 'zod';
 import type {
   AgentConfig,
   AgentResult,
+  AgentRunMetadata,
   PromptResolution,
   SystemPrompt,
   SystemPromptRef,
@@ -39,6 +46,9 @@ function getDefaultLangfuse(): Langfuse | null {
     ...(process.env['LANGFUSE_HOST'] !== undefined
       ? { baseUrl: process.env['LANGFUSE_HOST'] }
       : {}),
+    ...(process.env['LANGFUSE_RELEASE'] !== undefined
+      ? { release: process.env['LANGFUSE_RELEASE'] }
+      : {}),
   });
   return sharedLangfuse;
 }
@@ -50,6 +60,7 @@ function isPromptRef<TInput>(p: SystemPrompt<TInput>): p is SystemPromptRef {
 interface ResolvedPrompt {
   readonly text: string;
   readonly resolution: PromptResolution;
+  readonly promptClient: LangfusePromptClient | null;
 }
 
 async function resolveSystemPrompt<TInput>(
@@ -61,12 +72,14 @@ async function resolveSystemPrompt<TInput>(
     return {
       text: systemPrompt,
       resolution: { name: null, version: null, label: null, from_fallback: false },
+      promptClient: null,
     };
   }
   if (typeof systemPrompt === 'function') {
     return {
       text: systemPrompt(input),
       resolution: { name: null, version: null, label: null, from_fallback: false },
+      promptClient: null,
     };
   }
 
@@ -80,6 +93,7 @@ async function resolveSystemPrompt<TInput>(
         label: ref.label ?? null,
         from_fallback: true,
       },
+      promptClient: null,
     };
   }
 
@@ -97,6 +111,7 @@ async function resolveSystemPrompt<TInput>(
         label: ref.label ?? null,
         from_fallback: client.isFallback,
       },
+      promptClient: client,
     };
   } catch (err) {
     console.warn(
@@ -112,6 +127,7 @@ async function resolveSystemPrompt<TInput>(
         label: ref.label ?? null,
         from_fallback: true,
       },
+      promptClient: null,
     };
   }
 }
@@ -153,9 +169,25 @@ async function runToolCall(
   tools: ReadonlyArray<ToolSpec>,
   toolUse: Anthropic.Messages.ToolUseBlock,
   resultByteLimit: number,
+  traceParent: LangfuseTraceClient | LangfuseSpanClient | LangfuseGenerationClient | null,
+  turn: number,
 ): Promise<Anthropic.Messages.ToolResultBlockParam> {
   const tool = findTool(tools, toolUse.name);
+  const span = traceParent?.span({
+    name: `tool.${toolUse.name}`,
+    input: toolUse.input,
+    metadata: {
+      turn,
+      tool_name: toolUse.name,
+      tool_use_id: toolUse.id,
+    },
+  });
   if (!tool) {
+    span?.end({
+      level: 'ERROR',
+      statusMessage: `Unknown tool: ${toolUse.name}`,
+      output: { error: `Unknown tool: ${toolUse.name}` },
+    });
     return {
       type: 'tool_result',
       tool_use_id: toolUse.id,
@@ -166,6 +198,14 @@ async function runToolCall(
 
   const parsed = tool.inputSchema.safeParse(toolUse.input);
   if (!parsed.success) {
+    span?.end({
+      level: 'ERROR',
+      statusMessage: 'Invalid tool input',
+      output: {
+        error: 'Invalid tool input',
+        issues: parsed.error.issues,
+      },
+    });
     return {
       type: 'tool_result',
       tool_use_id: toolUse.id,
@@ -179,12 +219,27 @@ async function runToolCall(
 
   try {
     const result = await tool.handler(parsed.data);
+    const content = truncateToolContent(JSON.stringify(result, jsonReplacer), resultByteLimit);
+    span?.end({
+      output: {
+        content,
+        is_error: false,
+      },
+    });
     return {
       type: 'tool_result',
       tool_use_id: toolUse.id,
-      content: truncateToolContent(JSON.stringify(result, jsonReplacer), resultByteLimit),
+      content,
     };
   } catch (err) {
+    span?.end({
+      level: 'ERROR',
+      statusMessage: 'Tool handler threw',
+      output: {
+        error: 'Tool handler threw',
+        message: err instanceof Error ? err.message : String(err),
+      },
+    });
     return {
       type: 'tool_result',
       tool_use_id: toolUse.id,
@@ -227,6 +282,65 @@ function buildSystemBlocks(system: string): Anthropic.Messages.TextBlockParam[] 
   return [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }];
 }
 
+function resolveTraceName<TInput, TOutput>(
+  config: AgentConfig<TInput, TOutput>,
+  input: TInput,
+): string {
+  const configured = config.observability?.traceName;
+  if (typeof configured === 'function') return configured(input);
+  if (typeof configured === 'string' && configured.length > 0) return configured;
+  return config.name;
+}
+
+function resolveTraceTags<TInput, TOutput>(
+  config: AgentConfig<TInput, TOutput>,
+  input: TInput,
+): string[] {
+  const configured = config.observability?.tags;
+  const dynamic = typeof configured === 'function' ? configured(input) : configured;
+  return [...new Set([`agent:${config.name}`, ...(dynamic ?? [])])];
+}
+
+function buildRunMetadata(
+  turns: number,
+  fallbackReason: string | null,
+  prompt: PromptResolution,
+  toolCalls: ToolCallRecord[],
+  trace: LangfuseTraceClient | null,
+): AgentRunMetadata {
+  return {
+    turns,
+    fallback_reason: fallbackReason,
+    prompt,
+    tool_calls: toolCalls,
+    trace_id: trace?.id ?? null,
+    trace_url: trace?.getTraceUrl() ?? null,
+  };
+}
+
+function buildUsageDetails(usage: Anthropic.Messages.Usage): Record<string, number> {
+  const cacheCreation = usage.cache_creation_input_tokens ?? 0;
+  const cacheRead = usage.cache_read_input_tokens ?? 0;
+  return {
+    input: usage.input_tokens,
+    output: usage.output_tokens,
+    cache_creation_input_tokens: cacheCreation,
+    cache_read_input_tokens: cacheRead,
+    total: usage.input_tokens + usage.output_tokens + cacheCreation + cacheRead,
+  };
+}
+
+function serializeError(err: unknown): { message: string; name?: string; stack?: string } {
+  if (err instanceof Error) {
+    return {
+      message: err.message,
+      ...(err.name ? { name: err.name } : {}),
+      ...(err.stack ? { stack: err.stack } : {}),
+    };
+  }
+  return { message: String(err) };
+}
+
 export async function runAgent<TInput, TOutput>(
   config: AgentConfig<TInput, TOutput>,
   input: TInput,
@@ -235,7 +349,7 @@ export async function runAgent<TInput, TOutput>(
   const langfuse =
     config.langfuse !== undefined
       ? config.langfuse
-      : isPromptRef(config.systemPrompt)
+      : isPromptRef(config.systemPrompt) || config.observability !== undefined
         ? getDefaultLangfuse()
         : null;
   const maxTurns = config.maxTurns ?? DEFAULT_MAX_TURNS;
@@ -244,11 +358,45 @@ export async function runAgent<TInput, TOutput>(
   const resolved = await resolveSystemPrompt(config.systemPrompt, input, langfuse);
   const system = buildSystemBlocks(resolved.text);
   const tools = toolsToAnthropic(config.tools);
+  const sessionId = config.observability?.sessionId?.(input);
+  const userId = config.observability?.userId?.(input);
+  const trace =
+    langfuse?.trace({
+      name: resolveTraceName(config, input),
+      input: config.observability?.traceInput?.(input) ?? input,
+      ...(sessionId !== undefined ? { sessionId } : {}),
+      ...(userId !== undefined ? { userId } : {}),
+      tags: resolveTraceTags(config, input),
+      metadata: {
+        agent_name: config.name,
+        model: config.model,
+        tool_names: config.tools.map((tool) => tool.name),
+        prompt: resolved.resolution,
+        ...(config.observability?.metadata?.(input) ?? {}),
+      },
+    }) ?? null;
 
   const messages: Anthropic.Messages.MessageParam[] = [
     { role: 'user', content: config.userPrompt(input) },
   ];
   const toolCalls: ToolCallRecord[] = [];
+  const complete = async (result: AgentResult<TOutput>): Promise<AgentResult<TOutput>> => {
+    trace?.update({
+      output: config.observability?.traceOutput?.(result.output) ?? result.output,
+      metadata: {
+        agent_name: config.name,
+        model: config.model,
+        tool_names: config.tools.map((tool) => tool.name),
+        prompt: resolved.resolution,
+        turns: result.metadata.turns,
+        fallback_reason: result.metadata.fallback_reason,
+        tool_calls: result.metadata.tool_calls,
+        ...(config.observability?.metadata?.(input) ?? {}),
+      },
+    });
+    if (langfuse) await langfuse.flushAsync();
+    return result;
+  };
 
   let retryUsed = false;
   const tryRetry = (response: Anthropic.Messages.Message, nudge: string): boolean => {
@@ -269,7 +417,60 @@ export async function runAgent<TInput, TOutput>(
     };
     if (config.temperature !== undefined) requestParams.temperature = config.temperature;
 
-    const response = await client.messages.create(requestParams);
+    const generation = trace?.generation({
+      name: 'anthropic.messages.create',
+      model: config.model,
+      input: {
+        system: resolved.text,
+        messages,
+        ...(tools.length > 0 ? { tools } : {}),
+        max_tokens: maxTokens,
+        ...(config.temperature !== undefined ? { temperature: config.temperature } : {}),
+      },
+      metadata: {
+        turn,
+        prompt: resolved.resolution,
+      },
+      ...(resolved.promptClient ? { prompt: resolved.promptClient } : {}),
+    });
+
+    let response: Anthropic.Messages.Message;
+    try {
+      response = await client.messages.create(requestParams);
+    } catch (err) {
+      generation?.end({
+        level: 'ERROR',
+        statusMessage: 'anthropic.messages.create failed',
+        output: serializeError(err),
+      });
+      trace?.update({
+        metadata: {
+          agent_name: config.name,
+          model: config.model,
+          tool_names: config.tools.map((tool) => tool.name),
+          prompt: resolved.resolution,
+          failed_turn: turn,
+          ...(config.observability?.metadata?.(input) ?? {}),
+        },
+        output: serializeError(err),
+      });
+      if (langfuse) await langfuse.flushAsync();
+      throw err;
+    }
+
+    generation?.end({
+      model: response.model,
+      output: {
+        content: response.content,
+        stop_reason: response.stop_reason,
+        stop_sequence: response.stop_sequence,
+      },
+      usageDetails: buildUsageDetails(response.usage),
+      metadata: {
+        turn,
+        stop_reason: response.stop_reason,
+      },
+    });
 
     if (response.stop_reason === 'tool_use') {
       const toolUses = response.content.filter(
@@ -281,7 +482,9 @@ export async function runAgent<TInput, TOutput>(
       }
 
       const toolResults = await Promise.all(
-        toolUses.map((tu) => runToolCall(config.tools, tu, toolResultByteLimit)),
+        toolUses.map((tu) =>
+          runToolCall(config.tools, tu, toolResultByteLimit, generation ?? trace, turn),
+        ),
       );
 
       messages.push({ role: 'assistant', content: response.content });
@@ -301,15 +504,10 @@ export async function runAgent<TInput, TOutput>(
           )
         )
           continue;
-        return {
+        return complete({
           output: config.fallback(input, 'no JSON found in final response'),
-          metadata: {
-            turns: turn,
-            fallback_reason: 'no_json_found',
-            prompt: resolved.resolution,
-            tool_calls: toolCalls,
-          },
-        };
+          metadata: buildRunMetadata(turn, 'no_json_found', resolved.resolution, toolCalls, trace),
+        });
       }
 
       let parsed: unknown;
@@ -324,28 +522,24 @@ export async function runAgent<TInput, TOutput>(
           )
         )
           continue;
-        return {
+        return complete({
           output: config.fallback(input, `JSON parse failed twice: ${reason}`),
-          metadata: {
-            turns: turn,
-            fallback_reason: 'json_parse_failed',
-            prompt: resolved.resolution,
-            tool_calls: toolCalls,
-          },
-        };
+          metadata: buildRunMetadata(
+            turn,
+            'json_parse_failed',
+            resolved.resolution,
+            toolCalls,
+            trace,
+          ),
+        });
       }
 
       const validated = config.outputSchema.safeParse(parsed);
       if (validated.success) {
-        return {
+        return complete({
           output: validated.data,
-          metadata: {
-            turns: turn,
-            fallback_reason: null,
-            prompt: resolved.resolution,
-            tool_calls: toolCalls,
-          },
-        };
+          metadata: buildRunMetadata(turn, null, resolved.resolution, toolCalls, trace),
+        });
       }
 
       if (
@@ -357,38 +551,41 @@ export async function runAgent<TInput, TOutput>(
         )
       )
         continue;
-      return {
+      return complete({
         output: config.fallback(
           input,
           `schema validation failed twice: ${validated.error.message}`,
         ),
-        metadata: {
-          turns: turn,
-          fallback_reason: 'schema_validation_failed',
-          prompt: resolved.resolution,
-          tool_calls: toolCalls,
-        },
-      };
+        metadata: buildRunMetadata(
+          turn,
+          'schema_validation_failed',
+          resolved.resolution,
+          toolCalls,
+          trace,
+        ),
+      });
     }
 
-    return {
+    return complete({
       output: config.fallback(input, `unexpected stop_reason: ${response.stop_reason}`),
-      metadata: {
-        turns: turn,
-        fallback_reason: `stop_reason:${response.stop_reason}`,
-        prompt: resolved.resolution,
-        tool_calls: toolCalls,
-      },
-    };
+      metadata: buildRunMetadata(
+        turn,
+        `stop_reason:${response.stop_reason}`,
+        resolved.resolution,
+        toolCalls,
+        trace,
+      ),
+    });
   }
 
-  return {
+  return complete({
     output: config.fallback(input, `max_turns (${maxTurns}) exceeded`),
-    metadata: {
-      turns: maxTurns,
-      fallback_reason: 'max_turns_exceeded',
-      prompt: resolved.resolution,
-      tool_calls: toolCalls,
-    },
-  };
+    metadata: buildRunMetadata(
+      maxTurns,
+      'max_turns_exceeded',
+      resolved.resolution,
+      toolCalls,
+      trace,
+    ),
+  });
 }

@@ -3,6 +3,7 @@ export { runAgent } from './runtime';
 export type {
   Agent,
   AgentConfig,
+  AgentObservabilityConfig,
   AgentResult,
   AgentRunMetadata,
   FallbackBuilder,

@@ -23,6 +23,18 @@ export interface SystemPromptRef {
 export type SystemPrompt<TInput> = string | ((input: TInput) => string) | SystemPromptRef;
 export type UserPromptBuilder<TInput> = (input: TInput) => string;
 export type FallbackBuilder<TInput, TOutput> = (input: TInput, reason: string) => TOutput;
+export type AgentTagBuilder<TInput> = (input: TInput) => ReadonlyArray<string>;
+export type AgentMetadataBuilder<TInput> = (input: TInput) => Record<string, unknown> | undefined;
+
+export interface AgentObservabilityConfig<TInput, TOutput> {
+  readonly traceName?: string | ((input: TInput) => string);
+  readonly traceInput?: (input: TInput) => unknown;
+  readonly traceOutput?: (output: TOutput) => unknown;
+  readonly sessionId?: (input: TInput) => string | undefined;
+  readonly userId?: (input: TInput) => string | undefined;
+  readonly tags?: ReadonlyArray<string> | AgentTagBuilder<TInput>;
+  readonly metadata?: AgentMetadataBuilder<TInput>;
+}
 
 export interface AgentConfig<TInput, TOutput> {
   readonly name: string;
@@ -38,6 +50,7 @@ export interface AgentConfig<TInput, TOutput> {
   readonly client?: Anthropic;
   readonly toolResultByteLimit?: number;
   readonly langfuse?: Langfuse;
+  readonly observability?: AgentObservabilityConfig<TInput, TOutput>;
 }
 
 export interface PromptResolution {
@@ -58,6 +71,8 @@ export interface AgentRunMetadata {
   readonly fallback_reason: string | null;
   readonly prompt: PromptResolution;
   readonly tool_calls: ToolCallRecord[];
+  readonly trace_id: string | null;
+  readonly trace_url: string | null;
 }
 
 export interface AgentResult<TOutput> {
