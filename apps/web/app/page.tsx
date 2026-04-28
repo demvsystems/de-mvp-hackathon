@@ -1,6 +1,6 @@
 import { CharacterFilter } from '@/components/scoreboard/character-filter';
 import { TopicCard } from '@/components/scoreboard/topic-card';
-import { triageTopics } from '@/lib/fixtures';
+import { getScoreboard } from '@/lib/from-db';
 import type { Character } from '@/lib/types';
 
 const characters: Character[] = ['attention', 'opportunity', 'noteworthy', 'calm'];
@@ -22,18 +22,18 @@ export default async function ScoreboardPage({
     ? (character as Character)
     : null;
 
+  const topics = await getScoreboard();
+
   const counts: Record<'all' | Character, number> = {
-    all: triageTopics.length,
+    all: topics.length,
     attention: 0,
     opportunity: 0,
     noteworthy: 0,
     calm: 0,
   };
-  for (const t of triageTopics) counts[t.metadata.character] += 1;
+  for (const t of topics) counts[t.metadata.character] += 1;
 
-  const visible = (
-    filter ? triageTopics.filter((t) => t.metadata.character === filter) : triageTopics
-  )
+  const visible = (filter ? topics.filter((t) => t.metadata.character === filter) : topics)
     .slice()
     .sort((a, b) => {
       const cd = orderByCharacter[a.metadata.character] - orderByCharacter[b.metadata.character];

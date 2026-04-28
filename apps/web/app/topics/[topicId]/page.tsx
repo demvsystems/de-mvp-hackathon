@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { CharacterBadge } from '@/components/scoreboard/character-badge';
 import { EscalationBar } from '@/components/scoreboard/escalation-bar';
 import { TopicMemberRow } from '@/components/scoreboard/topic-member-row';
-import { getTopicContext } from '@/lib/fixtures';
+import { getTopic } from '@/lib/from-db';
 import type { ActivityTrend } from '@/lib/types';
 
 const trendIcon: Record<ActivityTrend, typeof TrendingUp> = {
@@ -33,7 +33,7 @@ export default async function TopicDetailPage({
   params: Promise<{ topicId: string }>;
 }) {
   const { topicId } = await params;
-  const topic = getTopicContext(decodeURIComponent(topicId));
+  const topic = await getTopic(decodeURIComponent(topicId));
   if (!topic) notFound();
 
   const TrendIcon = trendIcon[topic.activity.trend];
