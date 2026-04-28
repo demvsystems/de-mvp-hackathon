@@ -29,6 +29,118 @@ function asSeverity(value: string | null | undefined): StagnationSeverity {
     : 'none';
 }
 
+function asObj(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+}
+
+function str(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+function num(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+// TODO(connector-handoff): see types.ts. Slack mapping mirrors the actual
+// connector payload; the others are best-effort guesses against r.payload until
+// the real connectors land. Update when each connector ships.
+function toMember(r: {
+  id: string;
+  type: string;
+  source: string;
+  title: string | null;
+  body: string | null;
+  payload: unknown;
+  createdAt: Date;
+  edge_confidence: number | null;
+}): TopicMember | null {
+  const snippet = (r.body ?? r.title ?? '').slice(0, 280);
+  const base = {
+    id: r.id,
+    occurred_at: r.createdAt.toISOString(),
+    title: r.title,
+    body_snippet: snippet,
+    edge_confidence: r.edge_confidence ?? 1,
+    author_display_name: null,
+    permalink: null,
+  } as const;
+  const p = asObj(r.payload);
+
+  switch (r.source) {
+    case 'slack': {
+      if (r.type !== 'message') return null;
+      return {
+        ...base,
+        source: 'slack',
+        type: 'message',
+        payload: {
+          workspace_id: str(p['workspace_id']) ?? '',
+          channel_id: str(p['channel_id']) ?? '',
+          channel_name: null,
+          thread_ts: str(p['thread_ts']),
+          ts: str(p['ts']) ?? '',
+          reply_count: 0,
+        },
+      };
+    }
+    case 'intercom': {
+      if (r.type !== 'conversation' && r.type !== 'message') return null;
+      return {
+        ...base,
+        source: 'intercom',
+        type: r.type,
+        payload: {
+          conversation_id: str(p['conversation_id']) ?? '',
+        },
+      };
+    }
+    case 'jira': {
+      if (r.type !== 'issue' && r.type !== 'comment') return null;
+      return {
+        ...base,
+        source: 'jira',
+        type: r.type,
+        payload: {
+          issue_key: str(p['issue_key']) ?? '',
+          project_key: str(p['project_key']) ?? '',
+          ...(str(p['issue_type']) ? { issue_type: str(p['issue_type'])! } : {}),
+          ...(str(p['status']) ? { status: str(p['status'])! } : {}),
+          ...(str(p['priority']) ? { priority: str(p['priority'])! } : {}),
+        },
+      };
+    }
+    case 'github': {
+      if (r.type !== 'pr' && r.type !== 'issue' && r.type !== 'comment' && r.type !== 'review') {
+        return null;
+      }
+      return {
+        ...base,
+        source: 'github',
+        type: r.type,
+        payload: {
+          repo: str(p['repo']) ?? '',
+          number: num(p['number']) ?? 0,
+        },
+      };
+    }
+    case 'upvoty': {
+      if (r.type !== 'post' && r.type !== 'comment') return null;
+      return {
+        ...base,
+        source: 'upvoty',
+        type: r.type,
+        payload: {
+          board_id: str(p['board_id']) ?? '',
+          board_name: null,
+          post_id: str(p['post_id']) ?? '',
+        },
+      };
+    }
+    default:
+      return null;
+  }
+}
+
 function asReasoning(value: unknown): AssessmentReasoning {
   const obj = (value ?? {}) as Record<string, unknown>;
   // Reviewer publishes `summary`; legacy fixtures used `sentiment_aggregate`.
@@ -93,19 +205,9 @@ export async function getTopic(id: string): Promise<TopicContext | null> {
     limit: 25,
   });
 
-  const members: TopicMember[] = memberRows.map((r): TopicMember => {
-    const snippet = (r.body ?? r.title ?? '').slice(0, 280);
-    return {
-      id: r.id,
-      type: r.type,
-      source: r.source as TopicMember['source'],
-      title: r.title,
-      body_snippet: snippet,
-      author_display_name: null,
-      occurred_at: r.createdAt.toISOString(),
-      edge_confidence: r.edge_confidence ?? 1,
-    };
-  });
+  const members: TopicMember[] = memberRows
+    .map((r): TopicMember | null => toMember(r))
+    .filter((m): m is TopicMember => m !== null);
 
   const latestReasoning = asReasoning(latest?.reasoning);
   const lastActivity = (topic.lastActivityAt ?? topic.discoveredAt).toISOString();

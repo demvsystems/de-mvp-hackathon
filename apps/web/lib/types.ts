@@ -4,7 +4,25 @@
  * fixtures to live `/tools/*` calls without touching the UI.
  */
 
-export type Source = 'slack' | 'jira' | 'github' | 'confluence' | 'intercom' | 'topic';
+// =============================================================================
+// TODO(connector-handoff): the per-source TopicMember variants below are
+// PLACEHOLDERS. Only the Slack variant is grounded in the actual ingest
+// (packages/connectors/src/slack). Intercom / Jira / GitHub / Upvoty connectors
+// are being built in parallel by another dev — once they land, replace these
+// shapes with whatever those connectors actually write into `records.payload`.
+//
+// The base fields (id, source, occurred_at, title, body_snippet,
+// edge_confidence, author_display_name, permalink) are safe regardless and the
+// renderer only depends on those today, so changing payload shapes later is
+// low blast radius. But:
+//   - field NAMES below are predictions, not contracts
+//   - "joined" fields (author_display_name, channel_name, board_name,
+//     reply_count) require the read endpoint to traverse edges; today it
+//     doesn't, so they all come back null/0
+//   - permalink synthesis needs source-specific glue per source; today null
+// =============================================================================
+
+export type Source = 'slack' | 'intercom' | 'jira' | 'github' | 'upvoty' | 'topic';
 
 export type Character = 'attention' | 'opportunity' | 'noteworthy' | 'calm';
 
@@ -48,16 +66,80 @@ export type TriageTopic = {
   };
 };
 
-export type TopicMember = {
+type TopicMemberBase = {
   id: string;
-  type: string;
-  source: Source;
+  occurred_at: string;
   title: string | null;
   body_snippet: string;
-  author_display_name: string | null;
-  occurred_at: string;
   edge_confidence: number;
+  // Resolved by the read endpoint via edges/derivation (not yet — TODO above).
+  author_display_name: string | null;
+  permalink: string | null;
 };
+
+export type SlackMember = TopicMemberBase & {
+  source: 'slack';
+  type: 'message';
+  payload: {
+    workspace_id: string;
+    channel_id: string;
+    channel_name: string | null; // joined via posted_in → channel
+    thread_ts: string | null;
+    ts: string;
+    reply_count: number; // derived: count(replies_to → me)
+  };
+};
+
+export type IntercomMember = TopicMemberBase & {
+  source: 'intercom';
+  type: 'conversation' | 'message';
+  payload: {
+    conversation_id: string;
+    state?: 'open' | 'closed' | 'snoozed';
+    channel?: 'email' | 'chat' | 'in-app';
+    customer_display_name?: string | null;
+    last_message_role?: 'customer' | 'teammate';
+  };
+};
+
+export type JiraMember = TopicMemberBase & {
+  source: 'jira';
+  type: 'issue' | 'comment';
+  payload: {
+    issue_key: string;
+    project_key: string;
+    issue_type?: string;
+    status?: string;
+    priority?: string;
+    assignee_display_name?: string | null;
+    sprint_name?: string | null;
+  };
+};
+
+export type GithubMember = TopicMemberBase & {
+  source: 'github';
+  type: 'pr' | 'issue' | 'comment' | 'review';
+  payload: {
+    repo: string;
+    number: number;
+    state?: 'open' | 'closed' | 'merged' | 'draft';
+    labels?: string[];
+  };
+};
+
+export type UpvotyMember = TopicMemberBase & {
+  source: 'upvoty';
+  type: 'post' | 'comment';
+  payload: {
+    board_id: string;
+    board_name: string | null;
+    post_id: string;
+    status?: string;
+    vote_count?: number;
+  };
+};
+
+export type TopicMember = SlackMember | IntercomMember | JiraMember | GithubMember | UpvotyMember;
 
 export type AssessmentHistoryEntry = {
   assessed_at: string;
