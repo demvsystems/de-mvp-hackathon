@@ -1,0 +1,43 @@
+{
+  "boards": [
+    {
+      "id": "board_sales_enablement",
+      "name": "board_sales_enablement"
+    }
+  ],
+  "users": [
+    {
+      "id": "u_821",
+      "name": "Sales Community"
+    },
+    {
+      "id": "u_923",
+      "name": "u_923"
+    },
+    {
+      "id": "u_922",
+      "name": "u_922"
+    }
+  ],
+  "posts": [
+    {
+      "id": "post_pr_2001",
+      "title": "KV Konditionen und Direktvereinbarung transparenter machen",
+      "body": "Viele vergleichen AO und Pool falsch. Bitte klare Guidance.",
+      "status": "open",
+      "board_id": "board_sales_enablement",
+      "author_id": "u_821",
+      "created_at": "2026-03-02T08:30:00.000Z",
+      "vote_count": 1,
+      "voter_ids": ["u_922"],
+      "comments": [
+        {
+          "id": "comment_pr_7001",
+          "body": "Direktvereinbarung loest es oft, wird aber zu selten erklaert.",
+          "created_at": "2026-03-02T09:00:00.000Z",
+          "author_id": "u_923"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "boards": [
+    {
+      "id": "board_versicherung",
+      "name": "board_versicherung"
+    }
+  ],
+  "users": [
+    {
+      "id": "u_801",
+      "name": "Makler Community"
+    },
+    {
+      "id": "u_903",
+      "name": "u_903"
+    },
+    {
+      "id": "u_901",
+      "name": "u_901"
+    }
+  ],
+  "posts": [
+    {
+      "id": "post_bipro_2001",
+      "title": "BiPro 430.4 und GDV-Daten in Bestandsuebertragung",
+      "body": "Bitte Concordia 430.4 sauber anbinden, sonst gehen Sparte und Zahlweise verloren.",
+      "status": "open",
+      "board_id": "board_versicherung",
+      "author_id": "u_801",
+      "created_at": "2026-02-10T08:30:00.000Z",
+      "vote_count": 1,
+      "voter_ids": ["u_901"],
+      "comments": [
+        {
+          "id": "comment_bipro_7001",
+          "body": "Bei uns auch. Fuenfter Fall diese Woche.",
+          "created_at": "2026-02-10T09:00:00.000Z",
+          "author_id": "u_903"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "channel": {
+    "id": "C111EXCH01",
+    "name": "sales-it-blocker",
+    "display_name": "#sales-it-blocker",
+    "type": "public_channel",
+    "topic": "IT-seitige Einfuehrungsblocker",
+    "purpose": "Lost Deals mit technischer Ursache sichtbar machen"
+  },
+  "participants": [
+    {
+      "id": "U010",
+      "display_name": "Sales Lead",
+      "real_name": "Sales Lead",
+      "role_hint": "support"
+    }
+  ],
+  "content": [
+    {
+      "type": "chat_message",
+      "id": "msg_ex_001",
+      "slack_ts": "1777368010.000100",
+      "datetime": "2026-01-15T09:03:30Z",
+      "author": {
+        "id": "U010",
+        "display_name": "Sales Lead"
+      },
+      "text": "Dritter Lost Deal in Folge wegen fehlender Exchange/Shared-Mailbox Integration.",
+      "mentions": [],
+      "reactions": [],
+      "thread": null
+    }
+  ]
+}

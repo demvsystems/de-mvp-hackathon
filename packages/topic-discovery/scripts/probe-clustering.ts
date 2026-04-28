@@ -1,69 +1,235 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+/**
+ * Pipeline-Verlust-Probe gegen den canonical fixture-Set + expected-links-Gold.
+ *
+ * Modus `text-only` (default, offline): zeigt pro Cluster-Member, wie viel Text
+ * die aktuelle Pipeline an den Embedder gibt ("as-pipeline") vs. wie viel im
+ * Source-JSON eigentlich vorliegt ("raw"). Die Lücke ist der direkt messbare
+ * Informationsverlust auf dem Pfad Source → record.body → Embedder.
+ *
+ * Modus `embed`: zusätzlich beide Varianten embedden, pro expected-Cluster
+ * Recall berechnen (jeder Member näher am eigenen Centroid als am nächsten
+ * fremden Centroid?), Threshold-Sweep für False-Merge gegen Noise.
+ *
+ * CLI:
+ *   tsx scripts/probe-clustering.ts                  # text-only
+ *   tsx scripts/probe-clustering.ts --mode=embed     # erfordert AZURE_OPENAI_*
+ */
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createEmbedder } from '../../embedder/src/client';
 
-interface Doc {
-  scenario: string;
-  source: 'intercom' | 'slack' | 'upvoty' | 'jira';
-  kind: string;
-  text: string;
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const FIXTURE_DIR = resolve(__dirname, '../../..', 'fixtures');
+
+type Source = 'intercom' | 'jira' | 'slack' | 'upvoty';
+interface Member {
+  source: Source;
+  external_id: string;
+}
+interface Cluster {
+  id: string;
+  label: string;
+  members: Member[];
+}
+interface Noise extends Member {
+  reason: string;
+}
+interface ExpectedLinks {
+  clusters: Cluster[];
+  noise: Noise[];
 }
 
-const FIXTURE_DIR = join(process.cwd(), 'fixtures');
-
-function extractFromScenario(file: string): Doc[] {
-  const raw = JSON.parse(readFileSync(join(FIXTURE_DIR, file), 'utf8')) as Record<string, unknown>;
-  const scenario = String(raw['scenario_id'] ?? file.replace(/\.json$/, ''));
-  const docs: Doc[] = [];
-
-  const intercom = raw['intercom'] as
-    | Record<string, { data?: { item?: Record<string, unknown> } }>
-    | undefined;
-  if (intercom) {
-    for (const [event, payload] of Object.entries(intercom)) {
-      const item = payload?.data?.item ?? {};
-      const src = (item as { source?: { body?: string } }).source;
-      const last = (item as { last_message?: { body?: string } }).last_message;
-      const body = src?.body ?? last?.body;
-      if (body) docs.push({ scenario, source: 'intercom', kind: event, text: body });
-    }
-  }
-
-  const upvoty = raw['upvoty'] as
-    | {
-        posts?: Array<{ title?: string; description?: string }>;
-        comments?: Array<{ body?: string }>;
-      }
-    | undefined;
-  if (upvoty) {
-    for (const p of upvoty.posts ?? []) {
-      const text = [p.title, p.description].filter(Boolean).join('\n\n');
-      if (text) docs.push({ scenario, source: 'upvoty', kind: 'post', text });
-    }
-    for (const c of upvoty.comments ?? []) {
-      if (c.body) docs.push({ scenario, source: 'upvoty', kind: 'comment', text: c.body });
-    }
-  }
-
-  const slack = raw['slack'] as { content?: Array<{ text?: string }> } | undefined;
-  if (slack?.content) {
-    for (const m of slack.content) {
-      if (m.text) docs.push({ scenario, source: 'slack', kind: 'message', text: m.text });
-    }
-  }
-
-  const jira = raw['jira'] as
-    | { issues?: Array<{ summary?: string; descriptionText?: string }> }
-    | undefined;
-  if (jira?.issues) {
-    for (const i of jira.issues) {
-      const text = [i.summary, i.descriptionText].filter(Boolean).join('\n\n');
-      if (text) docs.push({ scenario, source: 'jira', kind: 'issue', text });
-    }
-  }
-
-  return docs;
+function readJson<T>(file: string): T {
+  return JSON.parse(readFileSync(resolve(FIXTURE_DIR, file), 'utf8')) as T;
 }
+
+// ----- Fixture-spezifische Text-Extraktoren -----------------------------------
+
+interface IntercomConv {
+  id: string;
+  subject?: string | null;
+  parts?: Array<{ body?: string | null }>;
+}
+interface JiraIssue {
+  key: string;
+  summary: string;
+  descriptionText: string;
+  comments?: Array<{ bodyText: string }>;
+  attachments?: Array<{ filename: string }>;
+}
+interface SlackMsg {
+  id: string;
+  text?: string;
+  thread?: { messages: SlackMsg[] };
+}
+interface UpvotyPost {
+  id: string;
+  title: string;
+  body?: string | null;
+  comments?: Array<{ body: string }>;
+}
+
+function flattenSlackThread(msg: SlackMsg): string {
+  const parts: string[] = [];
+  if (msg.text) parts.push(msg.text);
+  for (const reply of msg.thread?.messages ?? []) {
+    parts.push(flattenSlackThread(reply));
+  }
+  return parts.join('\n\n');
+}
+
+interface Variants {
+  asPipeline: string;
+  raw: string;
+}
+
+function extractIntercom(conv: IntercomConv): Variants {
+  // as-pipeline: handle.ts:99 setzt body=null auf der Conversation; das Record
+  // hat nur title=subject. Embedder sieht bei [title, body].filter() effektiv
+  // nur das subject.
+  const asPipeline = conv.subject ?? '';
+  const partBodies = (conv.parts ?? []).map((p) => p.body ?? '').filter(Boolean);
+  const raw = [conv.subject ?? '', ...partBodies].filter(Boolean).join('\n\n');
+  return { asPipeline, raw };
+}
+
+function extractJira(issue: JiraIssue): Variants {
+  // as-pipeline: handle.ts emittet body=descriptionText, title=summary.
+  // Comments werden explizit verworfen (handle.ts:38-40).
+  const asPipeline = `${issue.summary}\n\n${issue.descriptionText}`;
+  const commentBodies = (issue.comments ?? []).map((c) => c.bodyText);
+  const attachmentNames = (issue.attachments ?? []).map((a) => a.filename);
+  const raw = [
+    issue.summary,
+    issue.descriptionText,
+    ...commentBodies,
+    ...(attachmentNames.length > 0 ? [`attachments: ${attachmentNames.join(', ')}`] : []),
+  ].join('\n\n');
+  return { asPipeline, raw };
+}
+
+function extractSlack(msg: SlackMsg): Variants {
+  // as-pipeline: handle.ts setzt body=msg.text (originalBody), title=null. Der
+  // top-level-Record sieht *nicht* die thread-replies — die sind eigene Records
+  // mit eigenen IDs, die in expected-links nicht referenziert werden.
+  const asPipeline = msg.text ?? '';
+  const raw = flattenSlackThread(msg);
+  return { asPipeline, raw };
+}
+
+function extractUpvoty(post: UpvotyPost): Variants {
+  // as-pipeline: handle.ts emittet title + body. Comments sind eigene Records,
+  // werden aber im post-Record nicht mit-embedded.
+  const asPipeline = [post.title, post.body ?? ''].filter(Boolean).join('\n\n');
+  const commentBodies = (post.comments ?? []).map((c) => c.body);
+  const raw = [post.title, post.body ?? '', ...commentBodies].filter(Boolean).join('\n\n');
+  return { asPipeline, raw };
+}
+
+// ----- Lookup-Index -----------------------------------------------------------
+
+interface FixtureIndex {
+  intercom: Map<string, IntercomConv>;
+  jira: Map<string, JiraIssue>;
+  slack: Map<string, SlackMsg>;
+  upvoty: Map<string, UpvotyPost>;
+}
+
+function buildIndex(): FixtureIndex {
+  const intercomSnap = readJson<{ conversations: IntercomConv[] }>('intercom.json');
+  const jiraSnap = readJson<{ issues: JiraIssue[] }>('jira.json');
+  const slackSnap = readJson<{ content: SlackMsg[] }>('slack.json');
+  const upvotySnap = readJson<{ posts: UpvotyPost[] }>('upvoty.json');
+
+  return {
+    intercom: new Map(intercomSnap.conversations.map((c) => [c.id, c])),
+    jira: new Map(jiraSnap.issues.map((i) => [i.key, i])),
+    slack: new Map(slackSnap.content.map((m) => [m.id, m])),
+    upvoty: new Map(upvotySnap.posts.map((p) => [p.id, p])),
+  };
+}
+
+function variantsFor(member: Member, idx: FixtureIndex): Variants {
+  switch (member.source) {
+    case 'intercom': {
+      const c = idx.intercom.get(member.external_id);
+      if (!c) throw new Error(`intercom:${member.external_id} not in fixture`);
+      return extractIntercom(c);
+    }
+    case 'jira': {
+      const i = idx.jira.get(member.external_id);
+      if (!i) throw new Error(`jira:${member.external_id} not in fixture`);
+      return extractJira(i);
+    }
+    case 'slack': {
+      const m = idx.slack.get(member.external_id);
+      if (!m) throw new Error(`slack:${member.external_id} not in fixture`);
+      return extractSlack(m);
+    }
+    case 'upvoty': {
+      const p = idx.upvoty.get(member.external_id);
+      if (!p) throw new Error(`upvoty:${member.external_id} not in fixture`);
+      return extractUpvoty(p);
+    }
+  }
+}
+
+// ----- Reports ----------------------------------------------------------------
+
+function memberKey(m: Member): string {
+  return `${m.source}:${m.external_id}`;
+}
+
+function reportTextOnly(links: ExpectedLinks, idx: FixtureIndex): void {
+  console.log('=== Text-Längen-Diff (as-pipeline vs raw) ===\n');
+
+  let totalAsPipeline = 0;
+  let totalRaw = 0;
+  let totalAsPipelineEmpty = 0;
+
+  for (const cluster of links.clusters) {
+    console.log(`▸ ${cluster.id} — ${cluster.label}`);
+    console.log(
+      `  ${'member'.padEnd(28)} ${'as-pipeline'.padStart(12)} ${'raw'.padStart(8)}  delta`,
+    );
+    for (const m of cluster.members) {
+      const v = variantsFor(m, idx);
+      const ap = v.asPipeline.length;
+      const r = v.raw.length;
+      totalAsPipeline += ap;
+      totalRaw += r;
+      if (ap === 0) totalAsPipelineEmpty++;
+      const delta = r === 0 ? '—' : `-${(((r - ap) / r) * 100).toFixed(0)}%`;
+      const flag = ap === 0 ? '  ⨯ EMPTY' : ap < r * 0.5 ? '  ⚠ <50%' : '';
+      console.log(
+        `  ${memberKey(m).padEnd(28)} ${String(ap).padStart(12)} ${String(r).padStart(8)}  ${delta.padStart(5)}${flag}`,
+      );
+    }
+    console.log('');
+  }
+
+  console.log('▸ noise');
+  for (const n of links.noise) {
+    const v = variantsFor(n, idx);
+    console.log(
+      `  ${memberKey(n).padEnd(28)} ${String(v.asPipeline.length).padStart(12)} ${String(v.raw.length).padStart(8)}  (${n.reason})`,
+    );
+  }
+
+  const totalMembers = links.clusters.flatMap((c) => c.members).length;
+  console.log('\n--- summary ---');
+  console.log(`cluster-members:                  ${totalMembers}`);
+  console.log(
+    `as-pipeline empty (record body→0): ${totalAsPipelineEmpty} (${((100 * totalAsPipelineEmpty) / totalMembers).toFixed(0)}%)`,
+  );
+  console.log(`text chars total: as-pipeline=${totalAsPipeline}  raw=${totalRaw}`);
+  console.log(
+    `information retention (as-pipeline / raw): ${((100 * totalAsPipeline) / totalRaw).toFixed(0)}%`,
+  );
+}
+
+// ----- Embedding-Modus --------------------------------------------------------
 
 function cosineDistance(a: readonly number[], b: readonly number[]): number {
   let dot = 0;
@@ -79,109 +245,106 @@ function cosineDistance(a: readonly number[], b: readonly number[]): number {
   return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb));
 }
 
-async function main(): Promise<void> {
-  const files = readdirSync(FIXTURE_DIR).filter((f) => /^pwx_ideen_.*\.json$/.test(f));
-  const docs: Doc[] = [];
-  for (const f of files) docs.push(...extractFromScenario(f));
+function centroid(vectors: readonly number[][]): number[] {
+  const dim = vectors[0]!.length;
+  const c = new Array<number>(dim).fill(0);
+  for (const v of vectors) for (let k = 0; k < dim; k++) c[k]! += v[k]!;
+  for (let k = 0; k < dim; k++) c[k]! /= vectors.length;
+  return c;
+}
 
-  console.log(`extracted ${docs.length} docs across ${files.length} scenario files`);
-  for (const f of files) {
-    const n = docs.filter(
-      (d) => d.scenario === JSON.parse(readFileSync(join(FIXTURE_DIR, f), 'utf8')).scenario_id,
-    ).length;
-    console.log(`  ${f}: ${n} docs`);
-  }
-
+async function reportEmbed(links: ExpectedLinks, idx: FixtureIndex): Promise<void> {
   const embedder = createEmbedder();
-  const vectors: number[][] = [];
-  for (const d of docs) {
-    const v = await embedder.embed(d.text.slice(0, 24000));
-    vectors.push(v);
-  }
-  console.log(`embedded ${vectors.length} vectors (dim=${vectors[0]?.length})`);
+  console.log(`embedder ready: model=${embedder.modelTag} dim=${embedder.dim}\n`);
 
-  const within: number[] = [];
-  const between: number[] = [];
-  for (let i = 0; i < docs.length; i++) {
-    for (let j = i + 1; j < docs.length; j++) {
-      const d = cosineDistance(vectors[i]!, vectors[j]!);
-      if (docs[i]!.scenario === docs[j]!.scenario) within.push(d);
-      else between.push(d);
-    }
-  }
+  // Pro Member beide Varianten embedden, dann zwei parallele Auswertungen.
+  const allMembers: Array<{ m: Member; clusterId: string | null }> = [
+    ...links.clusters.flatMap((c) => c.members.map((m) => ({ m, clusterId: c.id }))),
+    ...links.noise.map((n) => ({ m: n, clusterId: null })),
+  ];
 
-  const stats = (
-    xs: number[],
-  ): {
-    n: number;
-    min: number;
-    p25: number;
-    med: number;
-    p75: number;
-    max: number;
-    mean: number;
-  } => {
-    const s = [...xs].sort((a, b) => a - b);
-    const q = (p: number): number => s[Math.min(s.length - 1, Math.floor(s.length * p))]!;
-    return {
-      n: s.length,
-      min: s[0]!,
-      p25: q(0.25),
-      med: q(0.5),
-      p75: q(0.75),
-      max: s[s.length - 1]!,
-      mean: xs.reduce((a, b) => a + b, 0) / xs.length,
-    };
+  const vectorsByVariant: Record<'asPipeline' | 'raw', Map<string, number[]>> = {
+    asPipeline: new Map(),
+    raw: new Map(),
   };
-  console.log('\nintra-scenario distances (should be small):', stats(within));
-  console.log('inter-scenario distances (should be large):', stats(between));
 
-  console.log('\nfraction below threshold 0.30:');
-  console.log(`  intra: ${(within.filter((d) => d <= 0.3).length / within.length).toFixed(2)}`);
-  console.log(`  inter: ${(between.filter((d) => d <= 0.3).length / between.length).toFixed(2)}`);
-
-  const thresholds = [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6];
-  console.log('\nseparation table (recall = intra<=t, false-merge = inter<=t):');
-  console.log('  threshold | recall | false-merge');
-  for (const t of thresholds) {
-    const r = within.filter((d) => d <= t).length / within.length;
-    const fm = between.filter((d) => d <= t).length / between.length;
-    console.log(`  ${t.toFixed(2)}      | ${r.toFixed(2)}   | ${fm.toFixed(2)}`);
+  for (const { m } of allMembers) {
+    const v = variantsFor(m, idx);
+    const key = memberKey(m);
+    // Leer-String würde die API ablehnen — durch Single-Space ersetzen, damit
+    // wir einen vergleichbaren "minimal-information"-Vektor bekommen.
+    const ap = v.asPipeline.length === 0 ? ' ' : v.asPipeline.slice(0, 24000);
+    const raw = v.raw.length === 0 ? ' ' : v.raw.slice(0, 24000);
+    vectorsByVariant.asPipeline.set(key, await embedder.embed(ap));
+    vectorsByVariant.raw.set(key, await embedder.embed(raw));
   }
 
-  console.log(
-    '\ncentroid recovery (per scenario, mean dist of members to centroid vs nearest other-scenario centroid):',
-  );
-  const scenarios = [...new Set(docs.map((d) => d.scenario))];
-  const centroids = new Map<string, number[]>();
-  for (const s of scenarios) {
-    const idxs = docs
-      .map((d, i) => [d, i] as const)
-      .filter(([d]) => d.scenario === s)
-      .map(([, i]) => i);
-    const dim = vectors[0]!.length;
-    const c = new Array<number>(dim).fill(0);
-    for (const i of idxs) for (let k = 0; k < dim; k++) c[k]! += vectors[i]![k]!;
-    for (let k = 0; k < dim; k++) c[k]! /= idxs.length;
-    centroids.set(s, c);
-  }
-  for (const s of scenarios) {
-    const c = centroids.get(s)!;
-    const idxs = docs
-      .map((d, i) => [d, i] as const)
-      .filter(([d]) => d.scenario === s)
-      .map(([, i]) => i);
-    const meanIntra =
-      idxs.map((i) => cosineDistance(vectors[i]!, c)).reduce((a, b) => a + b, 0) / idxs.length;
-    const otherDists = scenarios
-      .filter((s2) => s2 !== s)
-      .map((s2) => cosineDistance(c, centroids.get(s2)!));
-    const nearestOther = Math.min(...otherDists);
-    const verdict = meanIntra < nearestOther ? 'separable' : 'OVERLAPS';
+  for (const variant of ['asPipeline', 'raw'] as const) {
+    console.log(`\n=== variant: ${variant} ===`);
+    const vectors = vectorsByVariant[variant];
+
+    // Centroide pro Cluster
+    const centroids = new Map<string, number[]>();
+    for (const c of links.clusters) {
+      const memberVecs = c.members.map((m) => vectors.get(memberKey(m))!);
+      centroids.set(c.id, centroid(memberVecs));
+    }
+
+    // Recall: jeder Member näher am eigenen Centroid als am nächsten fremden
+    let correct = 0;
+    let total = 0;
+    for (const c of links.clusters) {
+      let clusterCorrect = 0;
+      for (const m of c.members) {
+        const v = vectors.get(memberKey(m))!;
+        const ownDist = cosineDistance(v, centroids.get(c.id)!);
+        const foreignDists = [...centroids.entries()]
+          .filter(([id]) => id !== c.id)
+          .map(([, vec]) => cosineDistance(v, vec));
+        const nearestForeign = Math.min(...foreignDists);
+        if (ownDist < nearestForeign) {
+          correct++;
+          clusterCorrect++;
+        }
+        total++;
+      }
+      console.log(
+        `  ${c.id}: recall ${clusterCorrect}/${c.members.length} (${((100 * clusterCorrect) / c.members.length).toFixed(0)}%)`,
+      );
+    }
+    console.log(`  overall recall: ${correct}/${total} (${((100 * correct) / total).toFixed(0)}%)`);
+
+    // False-merge: jeder Noise-Record näher als Schwellwert an irgendeinem Centroid
+    const thresholds = [0.2, 0.3, 0.4, 0.5];
     console.log(
-      `  ${s}: members→centroid mean=${meanIntra.toFixed(3)}, nearest other centroid=${nearestOther.toFixed(3)} [${verdict}]`,
+      `  false-merge (noise nearest-cluster ≤ t):  ${thresholds.map((t) => `t=${t}`).join('  ')}`,
+    );
+    const fmCounts = thresholds.map(() => 0);
+    for (const n of links.noise) {
+      const v = vectors.get(memberKey(n))!;
+      const minDist = Math.min(...[...centroids.values()].map((cv) => cosineDistance(v, cv)));
+      thresholds.forEach((t, i) => {
+        if (minDist <= t) fmCounts[i]!++;
+      });
+    }
+    console.log(
+      `                                            ${fmCounts.map((c) => `${c}/${links.noise.length}`.padStart(8)).join('  ')}`,
     );
   }
+}
+
+// ----- main -------------------------------------------------------------------
+
+async function main(): Promise<void> {
+  const mode = process.argv.includes('--mode=embed') ? 'embed' : 'text-only';
+  const links = readJson<ExpectedLinks>('expected-links.json');
+  const idx = buildIndex();
+  console.log(
+    `loaded ${links.clusters.length} clusters (${links.clusters.flatMap((c) => c.members).length} members) + ${links.noise.length} noise records\n`,
+  );
+
+  reportTextOnly(links, idx);
+  if (mode === 'embed') await reportEmbed(links, idx);
 }
 
 main().catch((err) => {

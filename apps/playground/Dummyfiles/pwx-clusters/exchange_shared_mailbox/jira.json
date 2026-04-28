@@ -1,0 +1,41 @@
+{
+  "source": {
+    "jiraSite": "demvsystems.atlassian.net",
+    "projectScope": {
+      "mode": "allowlist",
+      "projectKeys": ["DEMV"]
+    }
+  },
+  "projects": [
+    {
+      "id": "10010",
+      "key": "DEMV",
+      "name": "DE MVP Product",
+      "type": "software"
+    }
+  ],
+  "boards": [
+    {
+      "id": 412,
+      "name": "DEMV Product Board",
+      "type": "scrum",
+      "projectKey": "DEMV"
+    }
+  ],
+  "activeSprints": [],
+  "issues": [
+    {
+      "key": "DEMV-3891",
+      "projectKey": "DEMV",
+      "type": "Story",
+      "status": "Backlog",
+      "priority": "Medium",
+      "summary": "Exchange / Shared Mailbox Integration",
+      "descriptionText": "Wiederkehrender Lost-Deal-Grund in Bueros mit IT-Admin.",
+      "labels": ["exchange", "shared_mailbox", "lost_deal"],
+      "components": ["Integrationen"],
+      "comments": [],
+      "attachments": []
+    }
+  ]
+}

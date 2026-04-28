@@ -48,6 +48,9 @@ Run from repo root unless noted.
 ## Tests
 
 - Vitest, colocated `*.test.ts`.
+- DB-Tests (`packages/materializer/test/`) brauchen lokales Postgres (`docker-compose up -d`). Eigene DB `postgres_materializer_test` wird automatisch angelegt — Dev-Daten bleiben unangetastet.
+- **Schema-Drift**: Bei Änderungen an `records`/`edges` in `packages/db/src/schema.ts` muss `packages/materializer/test/setup.ts` mitgezogen werden (manuelles DDL-Spiegelbild). Mittelfristig auf `drizzle-kit push` gegen Test-DB ablösen.
+- Skip-Verhalten: Nur wenn `DATABASE_URL` ungesetzt ist (z.B. CI ohne Postgres-Service). Ist sie gesetzt und der Connect scheitert, fällt der Test-Run hart durch — nicht silent skippen.
 
 ## Git
 

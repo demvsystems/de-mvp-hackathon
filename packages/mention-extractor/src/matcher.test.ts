@@ -65,6 +65,27 @@ describe('findMentions', () => {
     expect(matches).toHaveLength(1);
     expect(matches[0]!.patternName).toBe('jira_hashtag');
   });
+
+  it('cross-channel body: Slack-Message zitiert Jira-Key + Intercom-Conv', () => {
+    const body =
+      'Hab gerade SHOP-142 reproduziert: Checkout failed mit 502, sobald eine Firmenkreditkarte kommt. Customer demo.user@example.com (Intercom conv_9001) hat exakt das gemeldet.';
+    const matches = findMentions(body, ALL_PATTERNS);
+    expect(matches.map((m) => `${m.patternName}:${m.matchText}`)).toEqual([
+      'jira_key:SHOP-142',
+      'intercom_conv_id:conv_9001',
+    ]);
+  });
+
+  it('cross-channel body: Slack-Message zitiert Upvoty-Post + Intercom-Conv + Jira-Epic', () => {
+    const body =
+      'Wir haben jetzt drei Enterprise-Anfragen zu SAML-SSO (Upvoty post_2001 + Intercom conv_9003). Slot in Q2 reservieren — Epic SHOP-201 ist auf In Progress.';
+    const matches = findMentions(body, ALL_PATTERNS);
+    expect(matches.map((m) => `${m.patternName}:${m.matchText}`)).toEqual([
+      'upvoty_post_id:post_2001',
+      'intercom_conv_id:conv_9003',
+      'jira_key:SHOP-201',
+    ]);
+  });
 });
 
 describe('ALL_PATTERNS Registry', () => {
@@ -77,9 +98,11 @@ describe('ALL_PATTERNS Registry', () => {
         'github_issue_shortform',
         'github_issue_url',
         'github_pr_url',
+        'intercom_conv_id',
         'jira_hashtag',
         'jira_key',
         'slack_permalink',
+        'upvoty_post_id',
       ].sort(),
     );
   });

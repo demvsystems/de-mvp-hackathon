@@ -1,0 +1,39 @@
+{
+  "conversations": [
+    {
+      "id": "conv_ex_9001",
+      "created_at": "2026-01-10T11:10:00.000Z",
+      "updated_at": "2026-01-10T11:10:00.000Z",
+      "state": "open",
+      "contact": {
+        "type": "user",
+        "id": "makler_601",
+        "name": "Maklerbuero E",
+        "email": "office@example.com"
+      },
+      "tags": ["exchange", "shared_mailbox", "it_admin"],
+      "parts": [
+        {
+          "id": "conv_ex_9001_p1",
+          "part_type": "comment",
+          "body": "Wir brauchen Exchange und Shared Mailbox Anbindung, sonst klappt die Einfuehrung nicht.",
+          "created_at": "2026-01-10T11:10:00.000Z",
+          "author": {
+            "type": "user",
+            "id": "makler_601",
+            "name": "Maklerbuero E",
+            "email": "office@example.com"
+          }
+        }
+      ]
+    }
+  ],
+  "contacts": [
+    {
+      "id": "makler_601",
+      "name": "Maklerbuero E",
+      "email": "office@example.com"
+    }
+  ],
+  "agents": []
+}

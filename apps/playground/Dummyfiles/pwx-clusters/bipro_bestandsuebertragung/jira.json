@@ -1,0 +1,53 @@
+{
+  "source": {
+    "jiraSite": "demvsystems.atlassian.net",
+    "projectScope": {
+      "mode": "allowlist",
+      "projectKeys": ["DEMV"]
+    }
+  },
+  "projects": [
+    {
+      "id": "10010",
+      "key": "DEMV",
+      "name": "DE MVP Product",
+      "type": "software"
+    }
+  ],
+  "boards": [
+    {
+      "id": 412,
+      "name": "DEMV Product Board",
+      "type": "scrum",
+      "projectKey": "DEMV"
+    }
+  ],
+  "activeSprints": [
+    {
+      "id": 991,
+      "name": "DEMV Sprint 2026-02",
+      "state": "active",
+      "goal": "Datenqualitaet in Kernprozessen sichern",
+      "projectKeys": ["DEMV"],
+      "boardId": 412,
+      "startDate": "2026-02-01T09:00:00.000+01:00",
+      "endDate": "2026-02-14T18:00:00.000+01:00"
+    }
+  ],
+  "issues": [
+    {
+      "key": "DEMV-4127",
+      "projectKey": "DEMV",
+      "sprintId": 991,
+      "type": "Bug",
+      "status": "Backlog",
+      "priority": "Low",
+      "summary": "BiPro Norm 430.4 Concordia-Anbindung nachziehen",
+      "descriptionText": "Folgeprobleme in Bestandsuebertragung: Sparte und Zahlweise gehen verloren.",
+      "labels": ["bipro", "gdv", "bestandsuebertragung"],
+      "components": ["Integrationen"],
+      "comments": [],
+      "attachments": []
+    }
+  ]
+}
