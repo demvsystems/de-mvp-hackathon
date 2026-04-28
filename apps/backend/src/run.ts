@@ -33,6 +33,9 @@ const SUBSCRIBER_WORKERS: Record<string, SubscriberWorkerSpec> = {
   materializer: {
     load: () => import('@repo/materializer').then((m) => m.materializerModule),
   },
+  'mention-extractor': {
+    load: () => import('@repo/mention-extractor').then((m) => m.mentionExtractorModule),
+  },
   reviewer: {
     load: () => import('@repo/agent/reviewer').then((m) => m.agentReviewerModule),
     requiredEnv: ['AZURE_OPENAI_API_KEY'],

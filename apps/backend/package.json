@@ -16,6 +16,7 @@
     "@repo/connectors": "workspace:*",
     "@repo/embedder": "workspace:*",
     "@repo/materializer": "workspace:*",
+    "@repo/mention-extractor": "workspace:*",
     "@repo/messaging": "workspace:*",
     "@repo/topic-discovery": "workspace:*"
   },
