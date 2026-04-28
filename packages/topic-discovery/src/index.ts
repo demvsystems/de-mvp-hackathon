@@ -5,6 +5,7 @@ import {
   type MessageContext,
   type EmbeddingCreatedPayload,
 } from '@repo/messaging';
+import { defaultDeps } from './defaultDeps';
 import { discoverTopic } from './discover';
 import { TOPIC_DISCOVERY_CONSUMER, provisionTopicDiscovery } from './provision';
 
@@ -25,7 +26,7 @@ async function main(): Promise<void> {
   const sub = createSubscriber({ consumer: TOPIC_DISCOVERY_CONSUMER });
 
   sub.on(EmbeddingCreated, async (payload: EmbeddingCreatedPayload, ctx) => {
-    await discoverTopic(payload, ctx);
+    await discoverTopic(payload, ctx, defaultDeps);
     trace(ctx);
   });
 
