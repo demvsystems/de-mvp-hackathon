@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { db } from '../client';
 import type { GetNeighborsInput } from './schemas';
-import type { EdgeRow, NeighborRecord, RecordRow } from './types';
+import type { NeighborRecord, RecordRow } from './types';
 
 type NeighborRow = {
   fromId: string;
@@ -30,16 +30,20 @@ export async function getNeighbors(input: GetNeighborsInput): Promise<NeighborRe
 
   const sortField =
     input.sort_by === 'confidence'
-      ? sql`e.confidence`
+      ? sql`"confidence"`
       : input.sort_by === 'updated_at'
-        ? sql`r.updated_at`
-        : sql`r.created_at`;
+        ? sql`"recordUpdatedAt"`
+        : sql`"recordCreatedAt"`;
   const orderDir = input.order === 'asc' ? sql`ASC` : sql`DESC`;
 
+  // path[] accumulates visited node ids; we refuse to re-walk into one we've
+  // already passed through. Without this guard a cycle in the edge graph fans
+  // the recursive CTE out exponentially before the final LIMIT applies.
   const rows = await db.execute<NeighborRow>(sql`
     WITH RECURSIVE walk AS (
       SELECT e.from_id, e.to_id, e.type, e.source, e.confidence, e.evidence,
-             1 AS depth
+             1 AS depth,
+             ARRAY[e.from_id, e.to_id] AS path
       FROM edges e
       WHERE e.from_id = ANY(${input.from_ids}::text[])
         AND e.valid_to IS NULL
@@ -48,31 +52,37 @@ export async function getNeighbors(input: GetNeighborsInput): Promise<NeighborRe
       UNION ALL
 
       SELECT e.from_id, e.to_id, e.type, e.source, e.confidence, e.evidence,
-             walk.depth + 1
+             walk.depth + 1,
+             walk.path || e.to_id
       FROM edges e
       JOIN walk ON e.from_id = walk.to_id
       WHERE walk.depth < ${input.depth}
         AND e.valid_to IS NULL
+        AND NOT (e.to_id = ANY(walk.path))
         ${edgeTypeFilter}
     )
-    SELECT walk.from_id     AS "fromId",
-           walk.to_id       AS "toId",
-           walk.type        AS "type",
-           walk.source      AS "source",
-           walk.confidence  AS "confidence",
-           walk.evidence    AS "evidence",
-           r.id             AS "recordId",
-           r.type           AS "recordType",
-           r.source         AS "recordSource",
-           r.title          AS "recordTitle",
-           r.body           AS "recordBody",
-           r.payload        AS "recordPayload",
-           r.created_at     AS "recordCreatedAt",
-           r.updated_at     AS "recordUpdatedAt",
-           r.ingested_at    AS "recordIngestedAt",
-           r.is_deleted     AS "recordIsDeleted"
-    FROM walk
-    LEFT JOIN records r ON r.id = walk.to_id AND r.is_deleted = false
+    SELECT * FROM (
+      SELECT DISTINCT ON (walk.from_id, walk.to_id, walk.type)
+             walk.from_id     AS "fromId",
+             walk.to_id       AS "toId",
+             walk.type        AS "type",
+             walk.source      AS "source",
+             walk.confidence  AS "confidence",
+             walk.evidence    AS "evidence",
+             r.id             AS "recordId",
+             r.type           AS "recordType",
+             r.source         AS "recordSource",
+             r.title          AS "recordTitle",
+             r.body           AS "recordBody",
+             r.payload        AS "recordPayload",
+             r.created_at     AS "recordCreatedAt",
+             r.updated_at     AS "recordUpdatedAt",
+             r.ingested_at    AS "recordIngestedAt",
+             r.is_deleted     AS "recordIsDeleted"
+      FROM walk
+      LEFT JOIN records r ON r.id = walk.to_id AND r.is_deleted = false
+      ORDER BY walk.from_id, walk.to_id, walk.type
+    ) deduped
     ORDER BY ${sortField} ${orderDir} NULLS LAST
     LIMIT ${input.limit}
   `);
@@ -81,7 +91,7 @@ export async function getNeighbors(input: GetNeighborsInput): Promise<NeighborRe
     edge: {
       fromId: r.fromId,
       toId: r.toId,
-      type: r.type as EdgeRow['type'],
+      type: r.type,
       source: r.source,
       confidence: r.confidence,
       evidence: r.evidence,
@@ -98,7 +108,6 @@ export async function getNeighbors(input: GetNeighborsInput): Promise<NeighborRe
           updatedAt: r.recordUpdatedAt,
           ingestedAt: r.recordIngestedAt,
           isDeleted: r.recordIsDeleted,
-          searchVector: null,
         } as RecordRow)
       : null,
   }));

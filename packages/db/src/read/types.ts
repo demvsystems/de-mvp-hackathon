@@ -1,6 +1,8 @@
 import type { edges, records, topicAssessments, topics } from '../schema';
 
-export type RecordRow = typeof records.$inferSelect;
+// Omit searchVector: it's a generated tsvector column for the GIN index and
+// shouldn't be materialized into read results (cost) or exposed to callers.
+export type RecordRow = Omit<typeof records.$inferSelect, 'searchVector'>;
 export type EdgeRow = typeof edges.$inferSelect;
 export type TopicRow = typeof topics.$inferSelect;
 export type TopicAssessmentRow = typeof topicAssessments.$inferSelect;

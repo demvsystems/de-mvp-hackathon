@@ -75,10 +75,10 @@ async function main(): Promise<void> {
 
   sub
     .on(TopicCreated, async (payload, ctx) => {
-      await reviewAndPublish(payload.id, ctx, 'topic.created');
+      await reviewAndPublish(payload.id, ctx, TopicCreated.event_type);
     })
     .on(TopicUpdated, async (payload, ctx) => {
-      await reviewAndPublish(payload.id, ctx, 'topic.updated');
+      await reviewAndPublish(payload.id, ctx, TopicUpdated.event_type);
     });
 
   const shutdown = (signal: string): void => {
