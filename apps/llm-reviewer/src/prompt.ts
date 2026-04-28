@@ -1,6 +1,10 @@
 import type { ReviewerInput } from './output-schema';
 
-export const SYSTEM_PROMPT = `Du bist der LLM-Bewerter eines Themen-/Eskalations-Erkennungssystems. Deine Aufgabe: jedes aktive Topic in eine Charakter-Klasse einordnen und ein strukturiertes Reasoning produzieren.
+// Baked-in fallback for the Langfuse-managed prompt `reviewer.system`.
+// Keep this in sync with prompts/reviewer-system.md — the sync script pushes
+// that file as the canonical source. This copy only runs when Langfuse is
+// unreachable or unconfigured.
+export const SYSTEM_PROMPT_FALLBACK = `Du bist der LLM-Bewerter eines Themen-/Eskalations-Erkennungssystems. Deine Aufgabe: jedes aktive Topic in eine Charakter-Klasse einordnen und ein strukturiertes Reasoning produzieren.
 
 # Charakter-Klassen
 

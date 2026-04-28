@@ -1,6 +1,15 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { Langfuse } from 'langfuse';
 import { z } from 'zod';
-import type { AgentConfig, AgentResult, ToolSpec } from './types';
+import type {
+  AgentConfig,
+  AgentResult,
+  PromptResolution,
+  SystemPrompt,
+  SystemPromptRef,
+  ToolCallRecord,
+  ToolSpec,
+} from './types';
 
 const DEFAULT_MAX_TURNS = 6;
 const DEFAULT_MAX_TOKENS = 4096;
@@ -13,6 +22,98 @@ function getDefaultClient(): Anthropic {
   if (process.env['ANTHROPIC_BASE_URL']) opts.baseURL = process.env['ANTHROPIC_BASE_URL'];
   sharedClient = new Anthropic(opts);
   return sharedClient;
+}
+
+let sharedLangfuse: Langfuse | null | undefined;
+function getDefaultLangfuse(): Langfuse | null {
+  if (sharedLangfuse !== undefined) return sharedLangfuse;
+  const secret = process.env['LANGFUSE_SECRET_KEY'];
+  const publicKey = process.env['LANGFUSE_PUBLIC_KEY'];
+  if (!secret || !publicKey) {
+    sharedLangfuse = null;
+    return sharedLangfuse;
+  }
+  sharedLangfuse = new Langfuse({
+    secretKey: secret,
+    publicKey,
+    ...(process.env['LANGFUSE_HOST'] !== undefined
+      ? { baseUrl: process.env['LANGFUSE_HOST'] }
+      : {}),
+  });
+  return sharedLangfuse;
+}
+
+function isPromptRef<TInput>(p: SystemPrompt<TInput>): p is SystemPromptRef {
+  return typeof p === 'object' && p !== null && 'kind' in p && p.kind === 'langfuse';
+}
+
+interface ResolvedPrompt {
+  readonly text: string;
+  readonly resolution: PromptResolution;
+}
+
+async function resolveSystemPrompt<TInput>(
+  systemPrompt: SystemPrompt<TInput>,
+  input: TInput,
+  langfuse: Langfuse | null,
+): Promise<ResolvedPrompt> {
+  if (typeof systemPrompt === 'string') {
+    return {
+      text: systemPrompt,
+      resolution: { name: null, version: null, label: null, from_fallback: false },
+    };
+  }
+  if (typeof systemPrompt === 'function') {
+    return {
+      text: systemPrompt(input),
+      resolution: { name: null, version: null, label: null, from_fallback: false },
+    };
+  }
+
+  const ref = systemPrompt;
+  if (!langfuse) {
+    return {
+      text: ref.fallback,
+      resolution: {
+        name: ref.name,
+        version: null,
+        label: ref.label ?? null,
+        from_fallback: true,
+      },
+    };
+  }
+
+  try {
+    const client = await langfuse.getPrompt(ref.name, ref.version, {
+      ...(ref.label !== undefined ? { label: ref.label } : {}),
+      fallback: ref.fallback,
+      type: 'text',
+    });
+    return {
+      text: client.compile(),
+      resolution: {
+        name: ref.name,
+        version: client.promptResponse.version,
+        label: ref.label ?? null,
+        from_fallback: client.isFallback,
+      },
+    };
+  } catch (err) {
+    console.warn(
+      `[agent-core] failed to fetch prompt "${ref.name}" from Langfuse, using fallback: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return {
+      text: ref.fallback,
+      resolution: {
+        name: ref.name,
+        version: null,
+        label: ref.label ?? null,
+        from_fallback: true,
+      },
+    };
+  }
 }
 
 type ToolDef = Anthropic.Messages.Tool;
@@ -131,17 +232,23 @@ export async function runAgent<TInput, TOutput>(
   input: TInput,
 ): Promise<AgentResult<TOutput>> {
   const client = config.client ?? getDefaultClient();
+  const langfuse =
+    config.langfuse !== undefined
+      ? config.langfuse
+      : isPromptRef(config.systemPrompt)
+        ? getDefaultLangfuse()
+        : null;
   const maxTurns = config.maxTurns ?? DEFAULT_MAX_TURNS;
   const maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
   const toolResultByteLimit = config.toolResultByteLimit ?? DEFAULT_TOOL_RESULT_BYTES;
-  const systemText =
-    typeof config.systemPrompt === 'function' ? config.systemPrompt(input) : config.systemPrompt;
-  const system = buildSystemBlocks(systemText);
+  const resolved = await resolveSystemPrompt(config.systemPrompt, input, langfuse);
+  const system = buildSystemBlocks(resolved.text);
   const tools = toolsToAnthropic(config.tools);
 
   const messages: Anthropic.Messages.MessageParam[] = [
     { role: 'user', content: config.userPrompt(input) },
   ];
+  const toolCalls: ToolCallRecord[] = [];
 
   let retryUsed = false;
   const tryRetry = (response: Anthropic.Messages.Message, nudge: string): boolean => {
@@ -169,6 +276,10 @@ export async function runAgent<TInput, TOutput>(
         (b): b is Anthropic.Messages.ToolUseBlock => b.type === 'tool_use',
       );
 
+      for (const tu of toolUses) {
+        toolCalls.push({ name: tu.name, input: tu.input, turn });
+      }
+
       const toolResults = await Promise.all(
         toolUses.map((tu) => runToolCall(config.tools, tu, toolResultByteLimit)),
       );
@@ -192,7 +303,12 @@ export async function runAgent<TInput, TOutput>(
           continue;
         return {
           output: config.fallback(input, 'no JSON found in final response'),
-          metadata: { turns: turn, fallback_reason: 'no_json_found' },
+          metadata: {
+            turns: turn,
+            fallback_reason: 'no_json_found',
+            prompt: resolved.resolution,
+            tool_calls: toolCalls,
+          },
         };
       }
 
@@ -210,7 +326,12 @@ export async function runAgent<TInput, TOutput>(
           continue;
         return {
           output: config.fallback(input, `JSON parse failed twice: ${reason}`),
-          metadata: { turns: turn, fallback_reason: 'json_parse_failed' },
+          metadata: {
+            turns: turn,
+            fallback_reason: 'json_parse_failed',
+            prompt: resolved.resolution,
+            tool_calls: toolCalls,
+          },
         };
       }
 
@@ -218,7 +339,12 @@ export async function runAgent<TInput, TOutput>(
       if (validated.success) {
         return {
           output: validated.data,
-          metadata: { turns: turn, fallback_reason: null },
+          metadata: {
+            turns: turn,
+            fallback_reason: null,
+            prompt: resolved.resolution,
+            tool_calls: toolCalls,
+          },
         };
       }
 
@@ -236,18 +362,33 @@ export async function runAgent<TInput, TOutput>(
           input,
           `schema validation failed twice: ${validated.error.message}`,
         ),
-        metadata: { turns: turn, fallback_reason: 'schema_validation_failed' },
+        metadata: {
+          turns: turn,
+          fallback_reason: 'schema_validation_failed',
+          prompt: resolved.resolution,
+          tool_calls: toolCalls,
+        },
       };
     }
 
     return {
       output: config.fallback(input, `unexpected stop_reason: ${response.stop_reason}`),
-      metadata: { turns: turn, fallback_reason: `stop_reason:${response.stop_reason}` },
+      metadata: {
+        turns: turn,
+        fallback_reason: `stop_reason:${response.stop_reason}`,
+        prompt: resolved.resolution,
+        tool_calls: toolCalls,
+      },
     };
   }
 
   return {
     output: config.fallback(input, `max_turns (${maxTurns}) exceeded`),
-    metadata: { turns: maxTurns, fallback_reason: 'max_turns_exceeded' },
+    metadata: {
+      turns: maxTurns,
+      fallback_reason: 'max_turns_exceeded',
+      prompt: resolved.resolution,
+      tool_calls: toolCalls,
+    },
   };
 }

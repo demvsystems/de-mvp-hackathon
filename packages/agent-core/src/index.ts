@@ -6,7 +6,10 @@ export type {
   AgentResult,
   AgentRunMetadata,
   FallbackBuilder,
+  PromptResolution,
   SystemPrompt,
+  SystemPromptRef,
+  ToolCallRecord,
   ToolSpec,
   UserPromptBuilder,
 } from './types';
