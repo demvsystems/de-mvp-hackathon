@@ -28,7 +28,7 @@ Workspace conventions:
 
 Run from repo root unless noted.
 
-- `pnpm dev` — `apps/web` on :3000. `pnpm dev:playground` — `apps/playground` on :3001.
+- `pnpm dev` / `pnpm start` — both apps in parallel (web :3000, playground :3001).
 - `pnpm build` / `lint` / `typecheck` / `test` — fan out via `pnpm -r`.
 - `pnpm format` / `format:check`.
 - `pnpm db:push` / `db:generate` / `db:migrate` / `db:studio` — runs in `packages/db`.

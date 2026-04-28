@@ -10,8 +10,8 @@
     ]
   },
   "scripts": {
-    "dev": "pnpm --filter @repo/web dev",
-    "dev:playground": "pnpm --filter @repo/playground dev",
+    "dev": "pnpm -r --parallel --filter \"./apps/*\" dev",
+    "start": "pnpm -r --parallel --filter \"./apps/*\" start",
     "build": "pnpm -r --filter \"./apps/*\" --filter \"./packages/*\" build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
