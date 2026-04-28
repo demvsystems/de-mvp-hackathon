@@ -17,7 +17,8 @@
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
     "push": "drizzle-kit push",
-    "studio": "drizzle-kit studio"
+    "studio": "drizzle-kit studio",
+    "seed-demo": "tsx scripts/seed-demo.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
