@@ -1,0 +1,193 @@
+{
+  "scenario_id": "scn_01_bipro_datenverlust",
+  "cluster": "bipro_bestandsuebertragung",
+  "intercom": {
+    "conversation.user.created": {
+      "id": "evt_intercom_bipro_1001",
+      "topic": "conversation.user.created",
+      "data": {
+        "item": {
+          "id": "conv_bipro_9001",
+          "state": "open",
+          "created_at": "2025-11-12T10:15:00.000Z",
+          "customer": {
+            "id": "makler_501",
+            "email": "makler.a@example.com",
+            "name": "Makler A"
+          },
+          "source": {
+            "type": "conversation",
+            "body": "Concordia liefert nur ueber BiPro 430.4. Seitdem fehlen GDV-Daten."
+          },
+          "tags": [
+            "bipro",
+            "bestandsuebertragung",
+            "gdv"
+          ]
+        }
+      }
+    },
+    "conversation.user.replied": {
+      "id": "evt_intercom_bipro_1002",
+      "topic": "conversation.user.replied",
+      "data": {
+        "item": {
+          "id": "conv_bipro_9002",
+          "state": "open",
+          "updated_at": "2026-02-03T09:14:12.000Z",
+          "customer": {
+            "id": "makler_502",
+            "email": "makler.b@example.com"
+          },
+          "last_message": {
+            "author_type": "user",
+            "body": "Bei der Uebertragung kommt nur noch private Sachversicherung sonstiges an. Zahlweise fehlt.",
+            "created_at": "2026-02-03T09:14:12.000Z"
+          }
+        }
+      }
+    }
+  },
+  "upvoty": {
+    "posts": [
+      {
+        "id": "post_bipro_2001",
+        "title": "BiPro 430.4 und GDV-Daten in Bestandsuebertragung",
+        "description": "Bitte Concordia 430.4 sauber anbinden, sonst gehen Sparte und Zahlweise verloren.",
+        "status": "open",
+        "board_id": "board_versicherung",
+        "author": {
+          "id": "u_801",
+          "name": "Makler Community"
+        },
+        "createdAt": "2026-02-10T08:30:00.000Z",
+        "updatedAt": "2026-02-10T08:35:00.000Z"
+      }
+    ],
+    "votes": [
+      {
+        "id": "vote_bipro_9001",
+        "post_id": "post_bipro_2001",
+        "user_id": "u_901",
+        "value": 1,
+        "createdAt": "2026-02-10T08:50:00.000Z",
+        "updatedAt": "2026-02-10T08:50:00.000Z"
+      }
+    ],
+    "comments": [
+      {
+        "id": "comment_bipro_7001",
+        "post_id": "post_bipro_2001",
+        "user_id": "u_903",
+        "body": "Bei uns auch. Fuenfter Fall diese Woche.",
+        "createdAt": "2026-02-10T09:00:00.000Z",
+        "updatedAt": "2026-02-10T09:00:00.000Z"
+      }
+    ]
+  },
+  "slack": {
+    "channel": {
+      "id": "C111BIPRO01",
+      "name": "produkt-bipro",
+      "display_name": "#produkt-bipro",
+      "type": "public_channel",
+      "topic": "BiPro und Bestandsuebertragung",
+      "purpose": "Sammeln von Signalen zu Datenverlust bei Uebertragung"
+    },
+    "participants": [
+      {
+        "id": "U001",
+        "display_name": "Julia Produkt",
+        "real_name": "Julia Produkt",
+        "role_hint": "product_owner"
+      },
+      {
+        "id": "U004",
+        "display_name": "Tom Vertrieb",
+        "real_name": "Tom Vertrieb",
+        "role_hint": "support"
+      }
+    ],
+    "content": [
+      {
+        "type": "chat_message",
+        "id": "msg_bipro_001",
+        "slack_ts": "1777367010.000100",
+        "datetime": "2026-02-11T10:03:30Z",
+        "author": {
+          "id": "U004",
+          "display_name": "Tom Vertrieb"
+        },
+        "text": "Haueft sich: Sparte und Zahlweise gehen bei Pool-Uebergabe verloren. Sehen wir in Intercom und Facebook.",
+        "mentions": [
+          "U001"
+        ],
+        "reactions": [],
+        "thread": null
+      }
+    ]
+  },
+  "jira": {
+    "source": {
+      "jiraSite": "demvsystems.atlassian.net",
+      "projectScope": {
+        "mode": "allowlist",
+        "projectKeys": [
+          "DEMV"
+        ]
+      }
+    },
+    "projects": [
+      {
+        "id": "10010",
+        "key": "DEMV",
+        "name": "DE MVP Product",
+        "type": "software"
+      }
+    ],
+    "boards": [
+      {
+        "id": 412,
+        "name": "DEMV Product Board",
+        "type": "scrum",
+        "projectKey": "DEMV"
+      }
+    ],
+    "activeSprints": [
+      {
+        "id": 991,
+        "name": "DEMV Sprint 2026-02",
+        "state": "active",
+        "goal": "Datenqualitaet in Kernprozessen sichern",
+        "projectKeys": [
+          "DEMV"
+        ],
+        "boardId": 412,
+        "startDate": "2026-02-01T09:00:00.000+01:00",
+        "endDate": "2026-02-14T18:00:00.000+01:00"
+      }
+    ],
+    "issues": [
+      {
+        "key": "DEMV-4127",
+        "projectKey": "DEMV",
+        "sprintId": 991,
+        "type": "Bug",
+        "status": "Backlog",
+        "priority": "Low",
+        "summary": "BiPro Norm 430.4 Concordia-Anbindung nachziehen",
+        "descriptionText": "Folgeprobleme in Bestandsuebertragung: Sparte und Zahlweise gehen verloren.",
+        "labels": [
+          "bipro",
+          "gdv",
+          "bestandsuebertragung"
+        ],
+        "components": [
+          "Integrationen"
+        ],
+        "comments": [],
+        "attachments": []
+      }
+    ]
+  }
+}

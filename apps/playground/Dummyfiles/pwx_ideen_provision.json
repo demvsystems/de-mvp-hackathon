@@ -1,0 +1,145 @@
+{
+  "scenario_id": "scn_03_provision_einwand",
+  "cluster": "provision_kv_konditionen",
+  "intercom": {
+    "conversation.user.created": {
+      "id": "evt_intercom_pr_1001",
+      "topic": "conversation.user.created",
+      "data": {
+        "item": {
+          "id": "conv_pr_9001",
+          "state": "open",
+          "created_at": "2026-03-01T10:10:00.000Z",
+          "customer": {
+            "id": "makler_701",
+            "email": "ao.wechsler@example.com",
+            "name": "Makler AO"
+          },
+          "source": {
+            "type": "conversation",
+            "body": "Ich hatte zweistellige MB in KV, mit 7,5 verliere ich Geld."
+          },
+          "tags": [
+            "provision",
+            "kv",
+            "einwand"
+          ]
+        }
+      }
+    }
+  },
+  "upvoty": {
+    "posts": [
+      {
+        "id": "post_pr_2001",
+        "title": "KV Konditionen und Direktvereinbarung transparenter machen",
+        "description": "Viele vergleichen AO und Pool falsch. Bitte klare Guidance.",
+        "status": "open",
+        "board_id": "board_sales_enablement",
+        "author": {
+          "id": "u_821",
+          "name": "Sales Community"
+        },
+        "createdAt": "2026-03-02T08:30:00.000Z",
+        "updatedAt": "2026-03-02T08:35:00.000Z"
+      }
+    ],
+    "votes": [
+      {
+        "id": "vote_pr_9001",
+        "post_id": "post_pr_2001",
+        "user_id": "u_922",
+        "value": 1,
+        "createdAt": "2026-03-02T08:50:00.000Z",
+        "updatedAt": "2026-03-02T08:50:00.000Z"
+      }
+    ],
+    "comments": [
+      {
+        "id": "comment_pr_7001",
+        "post_id": "post_pr_2001",
+        "user_id": "u_923",
+        "body": "Direktvereinbarung loest es oft, wird aber zu selten erklaert.",
+        "createdAt": "2026-03-02T09:00:00.000Z",
+        "updatedAt": "2026-03-02T09:00:00.000Z"
+      }
+    ]
+  },
+  "slack": {
+    "channel": {
+      "id": "C111PROV01",
+      "name": "sales-objections",
+      "display_name": "#sales-objections",
+      "type": "public_channel",
+      "topic": "Einwandmuster im Vertrieb",
+      "purpose": "Verlorene Deals nach Einwandgrund strukturieren"
+    },
+    "participants": [
+      {
+        "id": "U020",
+        "display_name": "Roadshow Sales",
+        "real_name": "Roadshow Sales",
+        "role_hint": "support"
+      }
+    ],
+    "content": [
+      {
+        "type": "chat_message",
+        "id": "msg_pr_001",
+        "slack_ts": "1777369010.000100",
+        "datetime": "2026-03-05T09:03:30Z",
+        "author": {
+          "id": "U020",
+          "display_name": "Roadshow Sales"
+        },
+        "text": "Konditions-Einwand wiederholt sich. Wir brauchen ein einheitliches Argumentationsskript.",
+        "mentions": [],
+        "reactions": [],
+        "thread": null
+      }
+    ]
+  },
+  "jira": {
+    "source": {
+      "jiraSite": "demvsystems.atlassian.net",
+      "projectScope": {
+        "mode": "allowlist",
+        "projectKeys": [
+          "DEMV"
+        ]
+      }
+    },
+    "projects": [
+      {
+        "id": "10010",
+        "key": "DEMV",
+        "name": "DE MVP Product",
+        "type": "software"
+      }
+    ],
+    "boards": [],
+    "activeSprints": [],
+    "issues": [
+      {
+        "key": "DEMV-5001",
+        "projectKey": "DEMV",
+        "sprintId": null,
+        "type": "Task",
+        "status": "To Do",
+        "priority": "High",
+        "summary": "Sales Enablement fuer KV-Provisionseinwand standardisieren",
+        "descriptionText": "AO vs Pool Vergleich sauber einordnen, Direktvereinbarung standardisiert kommunizieren.",
+        "labels": [
+          "sales_enablement",
+          "provision",
+          "kv"
+        ],
+        "components": [
+          "Sales"
+        ],
+        "comments": [],
+        "attachments": []
+      }
+    ]
+  }
+}

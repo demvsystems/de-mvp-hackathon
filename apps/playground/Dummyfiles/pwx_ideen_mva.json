@@ -1,0 +1,145 @@
+{
+  "scenario_id": "scn_04_mva_chancen_radar",
+  "cluster": "mva_ki_feature",
+  "intercom": {
+    "conversation.user.created": {
+      "id": "evt_intercom_mva_1001",
+      "topic": "conversation.user.created",
+      "data": {
+        "item": {
+          "id": "conv_mva_9001",
+          "state": "open",
+          "created_at": "2026-03-12T10:10:00.000Z",
+          "customer": {
+            "id": "makler_801",
+            "email": "makler.g@example.com",
+            "name": "Makler G"
+          },
+          "source": {
+            "type": "conversation",
+            "body": "MVA spart mir pro Fall 20 Minuten. Sehr stark."
+          },
+          "tags": [
+            "mva",
+            "ki",
+            "effizienz"
+          ]
+        }
+      }
+    }
+  },
+  "upvoty": {
+    "posts": [
+      {
+        "id": "post_mva_2001",
+        "title": "MVA als Top-Differenzierungsmerkmal",
+        "description": "Bitte MVA sichtbarer positionieren und Datenschutz-FAQ ausbauen.",
+        "status": "open",
+        "board_id": "board_marketing",
+        "author": {
+          "id": "u_831",
+          "name": "Makler Community"
+        },
+        "createdAt": "2026-03-13T08:30:00.000Z",
+        "updatedAt": "2026-03-13T08:35:00.000Z"
+      }
+    ],
+    "votes": [
+      {
+        "id": "vote_mva_9001",
+        "post_id": "post_mva_2001",
+        "user_id": "u_932",
+        "value": 1,
+        "createdAt": "2026-03-13T08:50:00.000Z",
+        "updatedAt": "2026-03-13T08:50:00.000Z"
+      }
+    ],
+    "comments": [
+      {
+        "id": "comment_mva_7001",
+        "post_id": "post_mva_2001",
+        "user_id": "u_933",
+        "body": "Positiv insgesamt, aber Datenschutz muss klar erklaert sein.",
+        "createdAt": "2026-03-13T09:00:00.000Z",
+        "updatedAt": "2026-03-13T09:00:00.000Z"
+      }
+    ]
+  },
+  "slack": {
+    "channel": {
+      "id": "C111MVA01",
+      "name": "mva-gtm",
+      "display_name": "#mva-gtm",
+      "type": "public_channel",
+      "topic": "MVA Resonanz und Vermarktung",
+      "purpose": "Positive Signale in Sales und Marketing hebeln"
+    },
+    "participants": [
+      {
+        "id": "U030",
+        "display_name": "Marketing Lead",
+        "real_name": "Marketing Lead",
+        "role_hint": "product_owner"
+      }
+    ],
+    "content": [
+      {
+        "type": "chat_message",
+        "id": "msg_mva_001",
+        "slack_ts": "1777370010.000100",
+        "datetime": "2026-03-14T09:03:30Z",
+        "author": {
+          "id": "U030",
+          "display_name": "Marketing Lead"
+        },
+        "text": "Webinar mit 300 Teilnehmenden und sehr positiver Resonanz. MVA muss als Opener in die Kommunikation.",
+        "mentions": [],
+        "reactions": [],
+        "thread": null
+      }
+    ]
+  },
+  "jira": {
+    "source": {
+      "jiraSite": "demvsystems.atlassian.net",
+      "projectScope": {
+        "mode": "allowlist",
+        "projectKeys": [
+          "DEMV"
+        ]
+      }
+    },
+    "projects": [
+      {
+        "id": "10010",
+        "key": "DEMV",
+        "name": "DE MVP Product",
+        "type": "software"
+      }
+    ],
+    "boards": [],
+    "activeSprints": [],
+    "issues": [
+      {
+        "key": "DEMV-5002",
+        "projectKey": "DEMV",
+        "sprintId": null,
+        "type": "Story",
+        "status": "To Do",
+        "priority": "Medium",
+        "summary": "MVA Positionierung und Datenschutz-FAQ ausbauen",
+        "descriptionText": "Positives Cluster aus Intercom, Facebook, Webinar und Won-Deal systematisch nutzen.",
+        "labels": [
+          "mva",
+          "marketing",
+          "datenschutz"
+        ],
+        "components": [
+          "GoToMarket"
+        ],
+        "comments": [],
+        "attachments": []
+      }
+    ]
+  }
+}

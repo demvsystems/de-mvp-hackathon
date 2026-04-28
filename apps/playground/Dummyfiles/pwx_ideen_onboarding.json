@@ -1,0 +1,145 @@
+{
+  "scenario_id": "scn_05_onboarding_abwaertsspirale",
+  "cluster": "onboarding_friction",
+  "intercom": {
+    "conversation.user.created": {
+      "id": "evt_intercom_onb_1001",
+      "topic": "conversation.user.created",
+      "data": {
+        "item": {
+          "id": "conv_onb_9001",
+          "state": "open",
+          "created_at": "2026-03-20T10:10:00.000Z",
+          "customer": {
+            "id": "makler_901",
+            "email": "makler.i@example.com",
+            "name": "Makler I"
+          },
+          "source": {
+            "type": "conversation",
+            "body": "Ich finde mich im Vertragsimport nicht zurecht und bekomme unklare Fehlermeldungen."
+          },
+          "tags": [
+            "onboarding",
+            "vertragsimport",
+            "hilfe"
+          ]
+        }
+      }
+    }
+  },
+  "upvoty": {
+    "posts": [
+      {
+        "id": "post_onb_2001",
+        "title": "Onboarding-Hilfe zu Vertragsimport und Policenassistent aktualisieren",
+        "description": "Anleitungen passen nicht zur aktuellen Oberflaeche.",
+        "status": "open",
+        "board_id": "board_onboarding",
+        "author": {
+          "id": "u_841",
+          "name": "New User Group"
+        },
+        "createdAt": "2026-03-21T08:30:00.000Z",
+        "updatedAt": "2026-03-21T08:35:00.000Z"
+      }
+    ],
+    "votes": [
+      {
+        "id": "vote_onb_9001",
+        "post_id": "post_onb_2001",
+        "user_id": "u_942",
+        "value": 1,
+        "createdAt": "2026-03-21T08:50:00.000Z",
+        "updatedAt": "2026-03-21T08:50:00.000Z"
+      }
+    ],
+    "comments": [
+      {
+        "id": "comment_onb_7001",
+        "post_id": "post_onb_2001",
+        "user_id": "u_943",
+        "body": "Erst nach drei Wochen produktiv. Bitte Onboarding frueher begleiten.",
+        "createdAt": "2026-03-21T09:00:00.000Z",
+        "updatedAt": "2026-03-21T09:00:00.000Z"
+      }
+    ]
+  },
+  "slack": {
+    "channel": {
+      "id": "C111ONB01",
+      "name": "onboarding-friction",
+      "display_name": "#onboarding-friction",
+      "type": "public_channel",
+      "topic": "Signale zu fruehen Einfuehrungshuerden",
+      "purpose": "Stille Rueckzuege frueh erkennen"
+    },
+    "participants": [
+      {
+        "id": "U040",
+        "display_name": "CS Lead",
+        "real_name": "CS Lead",
+        "role_hint": "support"
+      }
+    ],
+    "content": [
+      {
+        "type": "chat_message",
+        "id": "msg_onb_001",
+        "slack_ts": "1777371010.000100",
+        "datetime": "2026-03-22T09:03:30Z",
+        "author": {
+          "id": "U040",
+          "display_name": "CS Lead"
+        },
+        "text": "Mehrere Stuck-Deals nach Onboarding, obwohl kaum direkte Beschwerden eingehen.",
+        "mentions": [],
+        "reactions": [],
+        "thread": null
+      }
+    ]
+  },
+  "jira": {
+    "source": {
+      "jiraSite": "demvsystems.atlassian.net",
+      "projectScope": {
+        "mode": "allowlist",
+        "projectKeys": [
+          "DEMV"
+        ]
+      }
+    },
+    "projects": [
+      {
+        "id": "10010",
+        "key": "DEMV",
+        "name": "DE MVP Product",
+        "type": "software"
+      }
+    ],
+    "boards": [],
+    "activeSprints": [],
+    "issues": [
+      {
+        "key": "DEMV-4321",
+        "projectKey": "DEMV",
+        "sprintId": null,
+        "type": "Task",
+        "status": "Backlog",
+        "priority": "Low",
+        "summary": "Hilfe-Artikel Vertragsimport aktualisieren",
+        "descriptionText": "Anleitung veraltet, onboarding frictions fuehren zu spaeter Produktivnutzung.",
+        "labels": [
+          "onboarding",
+          "hilfe_content",
+          "activation"
+        ],
+        "components": [
+          "Onboarding"
+        ],
+        "comments": [],
+        "attachments": []
+      }
+    ]
+  }
+}
