@@ -27,79 +27,56 @@ npx langfuse-cli api prompts list --limit 1
 
 ## Workflows for this repo
 
+Mental model: **versions are immutable, labels are deployment pointers**. Editing a prompt creates a new version. Promoting moves a label. Rolling back moves a label.
+
 Every recipe assumes the prompt is `reviewer.system` (the only one currently managed by `meta.yaml`). Substitute as more prompts get added.
 
-### 1. Iterate on the reviewer prompt
+### 1. Edit a prompt → land on staging
+
+`meta.yaml` defaults all new versions to the `staging` label. Production is never written by the sync path.
 
 ```sh
 $EDITOR prompts/reviewer-system.md
 git add prompts/ && git commit -m "tighten reviewer system prompt"
-pnpm prompts:sync                                          # uploads new version, applies labels from meta.yaml
-npx langfuse-cli api prompts get --name reviewer.system    # confirm the latest version is what you committed
+git push                                                    # CI runs `pnpm prompts:sync` automatically
 ```
 
-The reviewer worker caches prompts; restart it (`pnpm backend` or just bounce the dev process) to pick up the new version.
+Locally, the same flow works without pushing: `pnpm prompts:sync`. CI is the recommended path because it gives you an audit trail.
+
+After sync, the new version exists in Langfuse with `staging` and `latest` labels. Production keeps pointing at whatever it pointed at before — your edit cannot break prod.
 
 ### 2. A/B a candidate against production
 
-In `meta.yaml`, flip the entry to `labels: [staging]` (don't touch production), then sync:
-
 ```sh
-pnpm prompts:sync
-LLM_REVIEWER_PROMPT_LABEL=staging pnpm eval                # rubric scores under the staging prompt
-LLM_REVIEWER_PROMPT_LABEL=production pnpm eval             # baseline
+LLM_REVIEWER_PROMPT_LABEL=staging pnpm eval                 # rubric scores under the staging prompt
+LLM_REVIEWER_PROMPT_LABEL=production pnpm eval              # baseline
 ```
 
-Compare the two `FixtureReport` outputs. If staging wins, promote (next recipe). If it loses, drop the staging label and keep iterating.
+Compare the two `FixtureReport` outputs. If staging wins, promote. If it loses, keep iterating on `prompts/reviewer-system.md` — each push creates a new staging version.
 
-### 3. Promote staging to production
+### 3. Promote staging → production
 
-Two clean paths. Prefer the first.
+**GitHub Action (recommended)** — open the Actions tab, run `promote-prompt`, fill in `name`, `version`, `label: production`. Audit trail = the run log + the user who triggered it.
 
-**Source-of-truth path (recommended)** — re-sync with the production label:
-
-```sh
-# Edit meta.yaml: labels: [production]
-pnpm prompts:sync
-```
-
-This re-uploads the same content as the next version with the production label attached, so git history matches what's serving.
-
-**Label-move path (faster, bypasses git)** — point production at an existing version:
+**Local equivalent** — same primitive, no git churn:
 
 ```sh
-# Find the version you want to promote
-npx langfuse-cli api prompts list --name reviewer.system
-
-# Move the label
-npx langfuse-cli api prompts version-update \
-  --name reviewer.system \
-  --version 4 \
-  --new-labels '["production"]'
+npx langfuse-cli api prompts list --name reviewer.system    # find the version you want
+pnpm prompts:promote --name reviewer.system --version 2 --label production
 ```
 
-Use this only when you need to roll forward in seconds and can backfill `prompts/` afterwards.
+The label-move is idempotent. The version that ran in staging is the same artifact that now serves production — no re-sync, no content drift, no new version.
 
 ### 4. Roll back a bad prompt
 
-If production is broken right now, label-move first, then reconcile git:
+Same primitive as promotion — point `production` at the last known-good version:
 
 ```sh
-# 1. Find the last known-good version
 npx langfuse-cli api prompts list --name reviewer.system
-
-# 2. Point production at it
-npx langfuse-cli api prompts version-update \
-  --name reviewer.system \
-  --version 3 \
-  --new-labels '["production"]'
-
-# 3. Reconcile prompts/ to match
-git revert <bad-commit>
-pnpm prompts:sync                  # uploads the reverted content as a new version with `production`
+pnpm prompts:promote --name reviewer.system --version 1 --label production
 ```
 
-Step 3 keeps `prompts/reviewer-system.md` ↔ Langfuse production in sync so the next sync doesn't accidentally re-promote the broken version.
+`prompts/reviewer-system.md` may now disagree with what's serving — that's expected. Reconcile by reverting the bad commit and pushing; CI re-syncs to staging, you re-test, you re-promote.
 
 ### 5. Verify what's actually in production
 
@@ -157,7 +134,8 @@ Resources we use: `prompts`, `traces`. Other resources (`datasets`, `scores`, `o
 
 ## Notes
 
-- `pnpm prompts:sync` is the canonical **create** path (reads `meta.yaml`, uploads via SDK). The CLI is for inspection, label moves, and ad-hoc reads.
+- `pnpm prompts:sync` is the canonical **create** path (reads `meta.yaml`, uploads via SDK; CI runs it on push to main).
+- `pnpm prompts:promote` is the canonical **label-move** path (uses `lf.prompt.update`; the GitHub Action `promote-prompt` wraps it for a clickable, audited UI).
+- New versions always land at `staging` (per `meta.yaml`). `production` only moves through `prompts:promote`. This makes accidental prod ships impossible.
 - The CLI is read-and-write under the same project key — be deliberate about destructive actions in shared projects.
-- Self-hosted Langfuse uses the same CLI; point `LANGFUSE_BASE_URL` at the self-hosted URL (`LANGFUSE_HOST` still works as a compatibility fallback in this repo).
-- For CI scripts, prefer the SDK (`@langfuse/client`) over shelling to the CLI — easier to error-handle and version-pin.
+- Self-hosted Langfuse uses the same CLI/SDK; point `LANGFUSE_BASE_URL` at the self-hosted URL (`LANGFUSE_HOST` still works as a compatibility fallback in this repo).

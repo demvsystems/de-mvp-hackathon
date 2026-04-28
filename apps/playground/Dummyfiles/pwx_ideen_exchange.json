@@ -19,11 +19,7 @@
             "type": "conversation",
             "body": "Wir brauchen Exchange und Shared Mailbox Anbindung, sonst klappt die Einfuehrung nicht."
           },
-          "tags": [
-            "exchange",
-            "shared_mailbox",
-            "it_admin"
-          ]
+          "tags": ["exchange", "shared_mailbox", "it_admin"]
         }
       }
     }
@@ -104,9 +100,7 @@
       "jiraSite": "demvsystems.atlassian.net",
       "projectScope": {
         "mode": "allowlist",
-        "projectKeys": [
-          "DEMV"
-        ]
+        "projectKeys": ["DEMV"]
       }
     },
     "projects": [
@@ -136,14 +130,8 @@
         "priority": "Medium",
         "summary": "Exchange / Shared Mailbox Integration",
         "descriptionText": "Wiederkehrender Lost-Deal-Grund in Bueros mit IT-Admin.",
-        "labels": [
-          "exchange",
-          "shared_mailbox",
-          "lost_deal"
-        ],
-        "components": [
-          "Integrationen"
-        ],
+        "labels": ["exchange", "shared_mailbox", "lost_deal"],
+        "components": ["Integrationen"],
         "comments": [],
         "attachments": []
       }

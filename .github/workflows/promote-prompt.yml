@@ -1,0 +1,42 @@
+name: promote-prompt
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: 'Prompt name (e.g. reviewer.system)'
+        required: true
+        default: 'reviewer.system'
+        type: string
+      version:
+        description: 'Prompt version number to promote'
+        required: true
+        type: string
+      label:
+        description: 'Target label'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prompts:promote --name "$PROMPT_NAME" --version "$PROMPT_VERSION" --label "$PROMPT_LABEL"
+        env:
+          PROMPT_NAME: ${{ inputs.name }}
+          PROMPT_VERSION: ${{ inputs.version }}
+          PROMPT_LABEL: ${{ inputs.label }}
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}

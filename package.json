@@ -33,6 +33,7 @@
     "eval": "pnpm --filter @repo/eval test",
     "eval:setup": "scripts/eval-setup.sh",
     "prompts:sync": "tsx scripts/sync-prompts.ts",
+    "prompts:promote": "tsx scripts/promote-prompt.ts",
     "prepare": "husky"
   },
   "lint-staged": {

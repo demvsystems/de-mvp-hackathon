@@ -19,11 +19,7 @@
             "type": "conversation",
             "body": "Ich finde mich im Vertragsimport nicht zurecht und bekomme unklare Fehlermeldungen."
           },
-          "tags": [
-            "onboarding",
-            "vertragsimport",
-            "hilfe"
-          ]
+          "tags": ["onboarding", "vertragsimport", "hilfe"]
         }
       }
     }
@@ -104,9 +100,7 @@
       "jiraSite": "demvsystems.atlassian.net",
       "projectScope": {
         "mode": "allowlist",
-        "projectKeys": [
-          "DEMV"
-        ]
+        "projectKeys": ["DEMV"]
       }
     },
     "projects": [
@@ -129,14 +123,8 @@
         "priority": "Low",
         "summary": "Hilfe-Artikel Vertragsimport aktualisieren",
         "descriptionText": "Anleitung veraltet, onboarding frictions fuehren zu spaeter Produktivnutzung.",
-        "labels": [
-          "onboarding",
-          "hilfe_content",
-          "activation"
-        ],
-        "components": [
-          "Onboarding"
-        ],
+        "labels": ["onboarding", "hilfe_content", "activation"],
+        "components": ["Onboarding"],
         "comments": [],
         "attachments": []
       }

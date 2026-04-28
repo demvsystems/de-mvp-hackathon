@@ -17,13 +17,26 @@ interface SubscriberWorker {
   register: (sub: Subscriber) => void;
 }
 
+interface SubscriberWorkerSpec {
+  load: () => Promise<SubscriberWorker>;
+  requiredEnv?: readonly string[];
+}
+
 // Lazy-loaded so a worker subset doesn't drag in unrelated env requirements
 // (e.g. running `--workers connectors` shouldn't need DATABASE_URL via the
 // reviewer's tool imports, or AZURE_OPENAI_* via the embedder client).
-const SUBSCRIBER_WORKERS: Record<string, () => Promise<SubscriberWorker>> = {
-  embedder: () => import('@repo/embedder').then((m) => m.embedderModule),
-  materializer: () => import('@repo/materializer').then((m) => m.materializerModule),
-  reviewer: () => import('@repo/agent/reviewer').then((m) => m.agentReviewerModule),
+const SUBSCRIBER_WORKERS: Record<string, SubscriberWorkerSpec> = {
+  embedder: {
+    load: () => import('@repo/embedder').then((m) => m.embedderModule),
+    requiredEnv: ['AZURE_OPENAI_API_KEY'],
+  },
+  materializer: {
+    load: () => import('@repo/materializer').then((m) => m.materializerModule),
+  },
+  reviewer: {
+    load: () => import('@repo/agent/reviewer').then((m) => m.agentReviewerModule),
+    requiredEnv: ['ANTHROPIC_API_KEY'],
+  },
 };
 
 const ALL_WORKERS = ['connectors', ...Object.keys(SUBSCRIBER_WORKERS)];
@@ -110,8 +123,13 @@ async function main(): Promise<void> {
   const subscribers: { name: string; sub: Subscriber }[] = [];
   for (const name of selectedWorkers) {
     if (name === 'connectors') continue;
-    const load = SUBSCRIBER_WORKERS[name]!;
-    const mod = await load();
+    const spec = SUBSCRIBER_WORKERS[name]!;
+    const missing = (spec.requiredEnv ?? []).filter((k) => !process.env[k]);
+    if (missing.length > 0) {
+      console.error(`[backend] skipping ${name}: missing env ${missing.join(', ')}`);
+      continue;
+    }
+    const mod = await spec.load();
     const sub = await startSubscriberWorker(name, mod);
     subscribers.push({ name, sub });
   }

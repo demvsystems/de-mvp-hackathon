@@ -19,11 +19,7 @@
             "type": "conversation",
             "body": "MVA spart mir pro Fall 20 Minuten. Sehr stark."
           },
-          "tags": [
-            "mva",
-            "ki",
-            "effizienz"
-          ]
+          "tags": ["mva", "ki", "effizienz"]
         }
       }
     }
@@ -104,9 +100,7 @@
       "jiraSite": "demvsystems.atlassian.net",
       "projectScope": {
         "mode": "allowlist",
-        "projectKeys": [
-          "DEMV"
-        ]
+        "projectKeys": ["DEMV"]
       }
     },
     "projects": [
@@ -129,14 +123,8 @@
         "priority": "Medium",
         "summary": "MVA Positionierung und Datenschutz-FAQ ausbauen",
         "descriptionText": "Positives Cluster aus Intercom, Facebook, Webinar und Won-Deal systematisch nutzen.",
-        "labels": [
-          "mva",
-          "marketing",
-          "datenschutz"
-        ],
-        "components": [
-          "GoToMarket"
-        ],
+        "labels": ["mva", "marketing", "datenschutz"],
+        "components": ["GoToMarket"],
         "comments": [],
         "attachments": []
       }

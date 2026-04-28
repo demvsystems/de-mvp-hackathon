@@ -19,11 +19,7 @@
             "type": "conversation",
             "body": "Ich hatte zweistellige MB in KV, mit 7,5 verliere ich Geld."
           },
-          "tags": [
-            "provision",
-            "kv",
-            "einwand"
-          ]
+          "tags": ["provision", "kv", "einwand"]
         }
       }
     }
@@ -104,9 +100,7 @@
       "jiraSite": "demvsystems.atlassian.net",
       "projectScope": {
         "mode": "allowlist",
-        "projectKeys": [
-          "DEMV"
-        ]
+        "projectKeys": ["DEMV"]
       }
     },
     "projects": [
@@ -129,14 +123,8 @@
         "priority": "High",
         "summary": "Sales Enablement fuer KV-Provisionseinwand standardisieren",
         "descriptionText": "AO vs Pool Vergleich sauber einordnen, Direktvereinbarung standardisiert kommunizieren.",
-        "labels": [
-          "sales_enablement",
-          "provision",
-          "kv"
-        ],
-        "components": [
-          "Sales"
-        ],
+        "labels": ["sales_enablement", "provision", "kv"],
+        "components": ["Sales"],
         "comments": [],
         "attachments": []
       }

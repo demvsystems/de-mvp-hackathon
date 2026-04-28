@@ -1,8 +1,11 @@
 # Sync manifest for `pnpm prompts:sync`. Adding a new entry here +
 # committing the .md file is the full path for landing a new prompt.
+# Default label is `staging`. New versions never auto-ship to production —
+# promotion is an explicit label-move via `pnpm prompts:promote` or the
+# promote-prompt GitHub Action. Versions are immutable; labels are pointers.
 prompts:
   - name: reviewer.system
     file: reviewer-system.md
     type: text
-    labels: [production]
+    labels: [staging]
     tags: [reviewer]
