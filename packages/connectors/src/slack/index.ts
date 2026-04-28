@@ -1,18 +1,17 @@
-import type { ConnectorSpec } from '../core';
-import { handleRow } from './handle';
-import type { SlackRow } from './schema';
+import { JsonSnapshotSource, type ConnectorSpec } from '../core';
+import { map } from './handle';
+import type { SlackSnapshot } from './schema';
 
-export const slackConnector: ConnectorSpec<SlackRow> = {
+/**
+ * Slack-Connector: liest einen Channel-Snapshot (genested mit Threads) aus
+ * `<dir>/slack.json` und mappt ihn auf Records + Edges.
+ */
+export const slackConnector: ConnectorSpec<SlackSnapshot> = {
   name: 'slack',
-  files: {
-    workspace: 'workspaces.jsonl',
-    channel: 'channels.jsonl',
-    user: 'users.jsonl',
-    message: 'messages.jsonl',
-  },
-  handleRow,
+  read: (dir) => JsonSnapshotSource.at<SlackSnapshot>(dir, 'slack.json'),
+  map,
 };
 
-export { handleRow } from './handle';
+export { map } from './handle';
 export * from './schema';
 export * as slackIds from './ids';

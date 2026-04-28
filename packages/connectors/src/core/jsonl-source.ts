@@ -9,7 +9,7 @@ import type { IngestionSource } from './types';
 export class JsonlSource<TRow> implements IngestionSource<TRow> {
   constructor(private readonly path: string) {}
 
-  async *rows(): AsyncIterable<TRow> {
+  async *items(): AsyncIterable<TRow> {
     const stream = createReadStream(this.path, { encoding: 'utf8' });
     const lines = createInterface({ input: stream, crlfDelay: Infinity });
     let lineNo = 0;

@@ -1,24 +1,27 @@
 import { parseArgs } from 'node:util';
-import { isAbsolute, join, resolve } from 'node:path';
+import { isAbsolute, resolve } from 'node:path';
 import { watch } from 'node:fs';
-import { JsonlSource, type ConnectorSpec } from '@repo/connectors';
+import type { ConnectorSpec } from '@repo/connectors';
 import { connectors, sourceNames } from './registry';
 
-async function replay(spec: ConnectorSpec, sourceDir: string): Promise<void> {
-  const tagged: Array<{ row: { kind: string }; offset: number }> = [];
-  for (const [kind, file] of Object.entries(spec.files)) {
-    const path = join(sourceDir, file);
-    const src = new JsonlSource<Record<string, unknown>>(path);
-    for await (const raw of src.rows()) {
-      const meta = raw['_meta'] as { emit_at_offset_seconds: number } | undefined;
-      const offset = meta?.emit_at_offset_seconds ?? 0;
-      tagged.push({ row: { ...(raw as object), kind } as { kind: string }, offset });
+/**
+ * Läuft eine Source einmal durch ihren Reader, ruft `map()` pro Item auf und
+ * gibt jede Emission als JSON-Zeile auf stdout aus. Im Watch-Modus wird der
+ * Vorgang bei Änderung im Daten-Verzeichnis wiederholt.
+ */
+async function replay(spec: ConnectorSpec<unknown>, dir: string): Promise<void> {
+  for await (const item of spec.read(dir).items()) {
+    const { emissions } = spec.map(item);
+    for (const e of emissions) {
+      process.stdout.write(
+        JSON.stringify({
+          event_type: e.event_type,
+          subject_id: e.subject_id,
+          source: e.source,
+          payload: e.payload,
+        }) + '\n',
+      );
     }
-  }
-  tagged.sort((a, b) => a.offset - b.offset);
-  for (const { row } of tagged) {
-    const out = spec.handleRow(row);
-    process.stdout.write(JSON.stringify(out) + '\n');
   }
 }
 
@@ -27,14 +30,16 @@ async function main(): Promise<void> {
     options: {
       source: { type: 'string' },
       data: { type: 'string' },
+      watch: { type: 'boolean', default: false },
     },
   });
+
   const cwd = process.env['INIT_CWD'] ?? process.cwd();
   const baseDir = values.data
     ? isAbsolute(values.data)
       ? values.data
       : resolve(cwd, values.data)
-    : resolve(cwd, 'synthetic-data');
+    : resolve(cwd, 'apps/playground/Dummyfiles');
 
   const selected = values.source ? [values.source] : sourceNames;
   for (const name of selected) {
@@ -46,22 +51,22 @@ async function main(): Promise<void> {
 
   for (const name of selected) {
     const spec = connectors[name]!;
-    const sourceDir = join(baseDir, name);
-    console.error(`[runner] replay ${name} from ${sourceDir}`);
-    await replay(spec, sourceDir);
+    console.error(`[runner] replay ${name} from ${baseDir}`);
+    await replay(spec, baseDir);
   }
+
+  if (!values.watch) return;
 
   for (const name of selected) {
     const spec = connectors[name]!;
-    const sourceDir = join(baseDir, name);
     let pending: NodeJS.Timeout | null = null;
-    watch(sourceDir, () => {
+    watch(baseDir, () => {
       if (pending) clearTimeout(pending);
-      // Editors fire multiple events per save; coalesce.
+      // Editoren feuern beim Speichern mehrere Events; wir entprellen.
       pending = setTimeout(() => {
         pending = null;
         console.error(`[runner] ${name} fixtures changed, replaying`);
-        replay(spec, sourceDir).catch((err) => {
+        replay(spec, baseDir).catch((err) => {
           console.error(`[runner] ${name} replay failed:`, err);
         });
       }, 100);
