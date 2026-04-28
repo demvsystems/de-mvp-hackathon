@@ -1,5 +1,5 @@
 import { read } from '@repo/db';
-import type { ToolSpec } from '@repo/agent-core';
+import type { ToolSpec } from '../core';
 
 export const reviewerTools: ToolSpec[] = [
   {

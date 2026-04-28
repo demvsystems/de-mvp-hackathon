@@ -1,15 +1,16 @@
 import {
-  closeConnection,
-  createSubscriber,
   publish,
   TopicAssessmentCreated,
   TopicCreated,
   TopicUpdated,
+  type ConsumerOptions,
   type MessageContext,
+  type Subscriber,
 } from '@repo/messaging';
 import { reviewerAgent } from './agent';
 import { ASSESSOR_ID } from './output-schema';
-import { provisionReviewer, REVIEWER_CONSUMER } from './provision';
+
+const REVIEWER_FILTER_SUBJECT = process.env['LLM_REVIEWER_FILTER'] ?? 'events.topic.>';
 
 async function reviewAndPublish(
   topicId: string,
@@ -74,34 +75,22 @@ async function reviewAndPublish(
   );
 }
 
-async function main(): Promise<void> {
-  await provisionReviewer();
-
-  const sub = createSubscriber({ consumer: REVIEWER_CONSUMER });
-
-  sub
-    .on(TopicCreated, async (payload, ctx) => {
-      await reviewAndPublish(payload.id, ctx, TopicCreated.event_type);
-    })
-    .on(TopicUpdated, async (payload, ctx) => {
-      await reviewAndPublish(payload.id, ctx, TopicUpdated.event_type);
-    });
-
-  const shutdown = (signal: string): void => {
-    console.log(`[llm-reviewer] received ${signal}, draining`);
-    void sub
-      .stop()
-      .then(() => closeConnection())
-      .finally(() => process.exit(0));
-  };
-  process.once('SIGINT', () => shutdown('SIGINT'));
-  process.once('SIGTERM', () => shutdown('SIGTERM'));
-
-  console.log(`[llm-reviewer] starting consumer "${REVIEWER_CONSUMER}"`);
-  await sub.start();
-}
-
-main().catch((err: unknown) => {
-  console.error(err);
-  process.exit(1);
-});
+export const agentReviewerModule: {
+  consumer: ConsumerOptions;
+  register: (sub: Subscriber) => void;
+} = {
+  consumer: {
+    durable_name: 'llm-assessor',
+    filter_subject: REVIEWER_FILTER_SUBJECT,
+    deliver_policy: 'all',
+  },
+  register(sub) {
+    sub
+      .on(TopicCreated, async (payload, ctx) => {
+        await reviewAndPublish(payload.id, ctx, TopicCreated.event_type);
+      })
+      .on(TopicUpdated, async (payload, ctx) => {
+        await reviewAndPublish(payload.id, ctx, TopicUpdated.event_type);
+      });
+  },
+};

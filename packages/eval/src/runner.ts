@@ -1,5 +1,5 @@
-import type { ToolCallRecord } from '@repo/agent-core';
-import type { AssessmentOutput } from '@repo/llm-reviewer/output-schema';
+import type { ToolCallRecord } from '@repo/agent';
+import type { AssessmentOutput } from '@repo/agent/reviewer';
 import { criteriaRegistry, type CriterionScore } from './criteria';
 import type { Fixture } from './fixture';
 import { startFixtureTrace } from './langfuse';

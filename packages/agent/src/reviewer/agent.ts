@@ -1,4 +1,4 @@
-import { defineAgent } from '@repo/agent-core';
+import { defineAgent } from '../core';
 import { AssessmentOutput, fallbackAssessment, type ReviewerInput } from './output-schema';
 import { buildUserPrompt, SYSTEM_PROMPT_FALLBACK } from './prompt';
 import { reviewerTools } from './tools';

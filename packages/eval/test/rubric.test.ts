@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { resolve } from 'node:path';
-import { reviewerAgent } from '@repo/llm-reviewer/agent';
+import { reviewerAgent } from '@repo/agent/reviewer';
 import {
   loadFixtures,
   loadRubric,

@@ -4,7 +4,7 @@ import {
   flushLangfuse,
   getDefaultLangfuseClient,
   shutdownLangfuse as shutdownSharedLangfuse,
-} from '@repo/agent-core';
+} from '@repo/agent';
 import { type LangfuseEvaluator, startObservation } from '@langfuse/tracing';
 import type { CriterionScore } from './criteria';
 
