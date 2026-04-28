@@ -13,6 +13,7 @@ let sharedClient: Anthropic | null = null;
 function getClient(): Anthropic {
   if (sharedClient) return sharedClient;
   const opts: ConstructorParameters<typeof Anthropic>[0] = {};
+  if (process.env['AZURE_OPENAI_API_KEY']) opts.apiKey = process.env['AZURE_OPENAI_API_KEY'];
   if (process.env['ANTHROPIC_BASE_URL']) opts.baseURL = process.env['ANTHROPIC_BASE_URL'];
   sharedClient = new Anthropic(opts);
   return sharedClient;

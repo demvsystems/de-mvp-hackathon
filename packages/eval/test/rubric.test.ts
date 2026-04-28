@@ -22,7 +22,7 @@ const GOLDEN_DIR = resolve(REPO_ROOT, 'eval/golden');
 // credentials to actually run it.
 const liveDeps =
   process.env['EVAL_LIVE'] === '1' &&
-  Boolean(process.env['DATABASE_URL_EVAL'] && process.env['ANTHROPIC_API_KEY']);
+  Boolean(process.env['DATABASE_URL_EVAL'] && process.env['AZURE_OPENAI_API_KEY']);
 
 describe('rubric scaffolding', () => {
   it('loads rubric.yaml and parses every criterion', async () => {

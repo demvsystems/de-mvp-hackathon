@@ -75,7 +75,7 @@ Each lives at `packages/eval/src/criteria/<name>.ts` and currently returns `0` u
 **Shipped**
 
 - Vitest runner exists in `packages/eval`
-- Live end-to-end test stub gated on `DATABASE_URL_EVAL` + `ANTHROPIC_API_KEY`
+- Live end-to-end test stub gated on `DATABASE_URL_EVAL` + `AZURE_OPENAI_API_KEY`
 
 **Remaining for Platinum**
 

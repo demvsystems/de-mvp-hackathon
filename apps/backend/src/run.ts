@@ -35,7 +35,7 @@ const SUBSCRIBER_WORKERS: Record<string, SubscriberWorkerSpec> = {
   },
   reviewer: {
     load: () => import('@repo/agent/reviewer').then((m) => m.agentReviewerModule),
-    requiredEnv: ['ANTHROPIC_API_KEY'],
+    requiredEnv: ['AZURE_OPENAI_API_KEY'],
   },
 };
 
