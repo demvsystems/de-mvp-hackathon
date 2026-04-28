@@ -1,0 +1,266 @@
+{
+  "metadata": {
+    "title": "jira_dummy_data_context_export",
+    "version": "1.1.0",
+    "language": "de",
+    "source_markdown": "jira_dummy_data_context_export.md",
+    "status": "extended_for_pwx_scenarios",
+    "purpose": "Kontext-Export fuer Jira-Dummy-Daten mit technischem Basisumfang und Erweiterungen fuer vielschichtige PWX-Szenarien."
+  },
+  "assessment": {
+    "base_quality": "good",
+    "fit_for_simple_mocking": true,
+    "fit_for_complex_pwx_scenarios": "partial",
+    "strengths": [
+      "klare_endpunkte_und_allowlist_logik",
+      "solides_normalisierungsmodell",
+      "saubere_pilotentscheidungen"
+    ],
+    "gaps_for_complexity": [
+      "kein_cross_channel_evidence_linking",
+      "keine_cluster_und_szenario_ids",
+      "keine_deal_outcome_signale_won_lost_stuck",
+      "keine_prioritaets_eskalationslogik_aus_business_impact",
+      "keine_signalstaerke_oder_confidence_felder"
+    ],
+    "recommendation": "inhalt_erweitern_und_als_json_standardisieren"
+  },
+  "scope": {
+    "in_focus": [
+      "jira_projekte",
+      "boards",
+      "aktive_sprints",
+      "issues",
+      "issue_inhalte",
+      "optionale_metadaten"
+    ],
+    "out_of_scope": [
+      "polling_strategie",
+      "auth_implementierung",
+      "infra_betrieb"
+    ]
+  },
+  "api_domains": [
+    {
+      "id": "jira_platform_rest_v3",
+      "purpose": "projekte_issues_kommentare_worklogs_attachments_jql"
+    },
+    {
+      "id": "jira_software_agile_rest",
+      "purpose": "boards_sprints_issues_in_sprints"
+    }
+  ],
+  "endpoints": {
+    "projects": {
+      "search": "GET /rest/api/3/project/search",
+      "single_project": "GET /rest/api/3/project/{projectIdOrKey}"
+    },
+    "boards": {
+      "list": "GET /rest/agile/1.0/board",
+      "by_project": "GET /rest/agile/1.0/board?projectKeyOrId={projectKey}&type=scrum"
+    },
+    "sprints": {
+      "active_by_board": "GET /rest/agile/1.0/board/{boardId}/sprint?state=active",
+      "single_sprint": "GET /rest/agile/1.0/sprint/{sprintId}"
+    },
+    "issues": {
+      "by_sprint": "GET /rest/agile/1.0/sprint/{sprintId}/issue",
+      "by_board_and_sprint": "GET /rest/agile/1.0/board/{boardId}/sprint/{sprintId}/issue",
+      "jql_search": "POST /rest/api/3/search/jql"
+    },
+    "issue_details": {
+      "comments": "GET /rest/api/3/issue/{issueIdOrKey}/comment",
+      "worklogs": "GET /rest/api/3/issue/{issueIdOrKey}/worklog",
+      "attachment_content": "GET /rest/api/3/attachment/content/{id}"
+    }
+  },
+  "project_scope": {
+    "mode": "allowlist",
+    "allowed_projects": [
+      "SHOP",
+      "CRM",
+      "BILLING"
+    ],
+    "validation_rule": "issue.fields.project.key in allowed_projects"
+  },
+  "pipeline": [
+    "allowed_projects_laden",
+    "projektmetadaten_validieren",
+    "boards_je_projekt_laden",
+    "aktive_sprints_je_board_laden",
+    "issues_aus_erlaubten_projekten_laden",
+    "optionale_issue_details_nachladen",
+    "normalisiertes_modell_emitten"
+  ],
+  "pilot_decisions": {
+    "id_strategy": {
+      "project_id": "project.key",
+      "issue_id": "issue.key"
+    },
+    "occurred_at_strategy": "issue.occurred_at = sprint.start_date",
+    "comments_emission": {
+      "enabled": false,
+      "reason": "nur_author_role_ohne_stabile_author_id"
+    },
+    "future_compatibility": "comments_koennen_additiv_erganzt_werden"
+  },
+  "extended_fields_for_pwx_complexity": {
+    "issue_extensions": [
+      "scenario_id",
+      "cluster_id",
+      "business_impact_level",
+      "cross_channel_evidence_refs",
+      "deal_outcome_signal",
+      "recommended_next_action",
+      "confidence"
+    ],
+    "cross_channel_ref_object": {
+      "source": "intercom|slack|facebook|meeting|crm",
+      "external_id": "string",
+      "excerpt": "string",
+      "detected_at": "iso_8601"
+    },
+    "deal_outcome_signal_enum": [
+      "won",
+      "lost",
+      "stuck",
+      "none"
+    ],
+    "business_impact_level_enum": [
+      "low",
+      "medium",
+      "high",
+      "critical"
+    ]
+  },
+  "priority_escalation_logic": {
+    "goal": "jira_prioritaet_aus_realimpact_und_evidenz_dynamisch_empfehlen",
+    "rules": [
+      {
+        "id": "esc_rule_cross_channel_density",
+        "if": "cross_channel_evidence_count >= 4 and business_impact_level in [high,critical]",
+        "then": "recommend_priority = high"
+      },
+      {
+        "id": "esc_rule_deal_risk",
+        "if": "deal_outcome_signal in [lost,stuck] and repeated_pattern = true",
+        "then": "recommend_priority = high"
+      },
+      {
+        "id": "esc_rule_positive_opportunity",
+        "if": "cluster_id = mva_ki_feature and positive_signal_ratio >= 0.8",
+        "then": "recommend_priority = medium_high_with_gtm_tag"
+      }
+    ]
+  },
+  "normalized_example": {
+    "source": {
+      "type": "jira",
+      "jira_site": "your-domain.atlassian.net",
+      "project_scope": {
+        "mode": "allowlist",
+        "project_keys": [
+          "SHOP",
+          "CRM",
+          "BILLING"
+        ]
+      }
+    },
+    "project": {
+      "id": "SHOP",
+      "key": "SHOP",
+      "name": "Shop Platform",
+      "type": "software"
+    },
+    "board": {
+      "id": "SHOP-BOARD-84",
+      "name": "SHOP Scrum Board",
+      "type": "scrum",
+      "project_key": "SHOP"
+    },
+    "sprint": {
+      "id": "SHOP-SPRINT-2026-05",
+      "name": "SHOP Sprint 2026-05",
+      "state": "active",
+      "goal": "Checkout und Bestellabschluss stabilisieren",
+      "project_keys": [
+        "SHOP"
+      ],
+      "board_id": "SHOP-BOARD-84",
+      "start_date": "2026-04-20T09:00:00.000+02:00",
+      "end_date": "2026-05-03T18:00:00.000+02:00"
+    },
+    "issues": [
+      {
+        "id": "SHOP-142",
+        "key": "SHOP-142",
+        "project_id": "SHOP",
+        "project_key": "SHOP",
+        "sprint_id": "SHOP-SPRINT-2026-05",
+        "type": "Bug",
+        "status": "In Progress",
+        "priority": "High",
+        "summary": "Fehler beim Speichern der Lieferadresse",
+        "description_text": "Beim Checkout wird die geaenderte Lieferadresse nicht persistiert.",
+        "labels": [
+          "checkout",
+          "regression"
+        ],
+        "components": [
+          "Checkout"
+        ],
+        "occurred_at": "2026-04-20T09:00:00.000+02:00",
+        "attachments": [
+          {
+            "filename": "checkout-error.png",
+            "mime_type": "image/png",
+            "size": 482133
+          }
+        ],
+        "scenario_id": "scn_01_bipro_datenverlust",
+        "cluster_id": "bipro_bestandsuebertragung",
+        "business_impact_level": "high",
+        "cross_channel_evidence_refs": [
+          {
+            "source": "intercom",
+            "external_id": "conv_9001",
+            "excerpt": "Sparte und Zahlweise gehen bei Uebertragung verloren.",
+            "detected_at": "2026-04-28T09:14:12.000Z"
+          },
+          {
+            "source": "slack",
+            "external_id": "msg_002",
+            "excerpt": "Wiederholtes Muster bei Datenverlust in Uebergabe.",
+            "detected_at": "2026-04-28T09:09:15.000Z"
+          }
+        ],
+        "deal_outcome_signal": "stuck",
+        "recommended_next_action": "jira_priority_high_and_product_team_tag",
+        "confidence": 0.87
+      }
+    ]
+  },
+  "validation": {
+    "required_top_level_fields": [
+      "metadata",
+      "scope",
+      "api_domains",
+      "endpoints",
+      "project_scope",
+      "pipeline",
+      "pilot_decisions",
+      "normalized_example"
+    ],
+    "required_issue_fields": [
+      "id",
+      "key",
+      "project_id",
+      "project_key",
+      "type",
+      "status",
+      "priority",
+      "summary",
+      "occurred_at"
+    ]
+  }
+}
