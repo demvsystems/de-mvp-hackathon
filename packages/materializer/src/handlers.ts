@@ -85,22 +85,31 @@ export async function handleTopicCreated(
   payload: TopicCreatedPayload,
   ctx: MessageContext,
 ): Promise<void> {
+  const centroidLit =
+    payload.centroid_body_only !== null ? `[${payload.centroid_body_only.join(',')}]` : null;
   await sql`
-    INSERT INTO topics (id, status, discovered_at, discovered_by, payload)
+    INSERT INTO topics (id, status, discovered_at, discovered_by,
+                        centroid_body_only, member_count_body_only, payload)
     VALUES (${payload.id}, 'active',
             ${ctx.envelope.occurred_at}, ${payload.discovered_by},
+            ${centroidLit}::vector,
+            ${payload.member_count_body_only ?? 0},
             ${JSON.stringify(payload.initial_centroid_summary)}::jsonb)
     ON CONFLICT (id) DO NOTHING
   `;
 }
 
-// No trigger in pilot — kept ready for Phase-2 curator actions that rename or
-// re-describe a topic. COALESCE preserves existing fields when payload is null.
+// COALESCE preserves existing fields when the payload field is null (curator
+// rename/re-describe in Phase 2; centroid maintenance from topic-discovery).
 export async function handleTopicUpdated(payload: TopicUpdatedPayload): Promise<void> {
+  const centroidLit =
+    payload.centroid_body_only !== null ? `[${payload.centroid_body_only.join(',')}]` : null;
   await sql`
     UPDATE topics
-       SET label       = COALESCE(${payload.label}, topics.label),
-           description = COALESCE(${payload.description}, topics.description)
+       SET label                  = COALESCE(${payload.label}, topics.label),
+           description            = COALESCE(${payload.description}, topics.description),
+           centroid_body_only     = COALESCE(${centroidLit}::vector, topics.centroid_body_only),
+           member_count_body_only = COALESCE(${payload.member_count_body_only}, topics.member_count_body_only)
      WHERE id = ${payload.id}
   `;
 }
