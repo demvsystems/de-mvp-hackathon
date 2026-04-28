@@ -13,6 +13,11 @@ interface RunOptions {
 async function main(): Promise<void> {
   const opts = parseArgs();
 
+  // Klarer Mode-Banner auf stderr, damit es im Output nicht versteckt ist.
+  console.error(
+    `[connectors:${opts.name}] ${opts.publish ? 'PUBLISH → NATS' : 'preview (stdout)'} | data: ${opts.dataDir}`,
+  );
+
   let total = 0;
   for await (const emission of streamEmissions(opts.name, opts.dataDir)) {
     total += 1;
@@ -68,15 +73,44 @@ async function* iterEmissions<T>(
 // Repo aus konsistent denselben Ordner trifft.
 const DEFAULT_DATA_DIR = 'apps/playground/Dummyfiles';
 
+const HELP = `Usage:
+  pnpm connectors:<slack|jira|intercom|upvoty> [data-dir] [flags]
+
+Arguments:
+  data-dir          Optional. Verzeichnis mit den Snapshot-Dateien.
+                    Default: ${DEFAULT_DATA_DIR} (relativ zum Repo-Root,
+                    aufgelöst gegen INIT_CWD).
+
+Flags:
+  --publish         Events ans messaging-Bus (NATS) senden statt nur preview.
+                    Voraussetzung: NATS läuft (docker-compose up -d nats) und
+                    Stream "EVENTS" ist provisioniert (pnpm worker:materializer:provision).
+  --help, -h        Diese Hilfe anzeigen.
+
+Modes:
+  Default           Preview-Mode: Emissions auf stdout, kein Netzwerk-IO.
+  --publish         Live-Publish an NATS-JetStream.
+
+Beispiele:
+  pnpm connectors:slack                       # Preview
+  pnpm connectors:slack -- --publish          # echt publishen (-- vor dem Flag!)
+  pnpm connectors:jira ./mein/anderer/pfad    # Override des data-dir
+`;
+
 function parseArgs(): RunOptions {
-  const [, , name, ...rest] = argv;
+  const argsAfterScript = argv.slice(2);
+
+  if (argsAfterScript.includes('--help') || argsAfterScript.includes('-h')) {
+    console.log(HELP);
+    exit(0);
+  }
+
+  const [name, ...rest] = argsAfterScript;
   if (!name) {
-    console.error('Usage: tsx scripts/run.ts <slack|jira|intercom|upvoty> [data-dir] [--publish]');
-    console.error(`  Default data-dir: ${DEFAULT_DATA_DIR} (relativ zum Repo-Root)`);
-    console.error('  Default ist Preview-Modus (stdout).');
-    console.error('  --publish sendet ans messaging-Bus (NATS_URL muss erreichbar sein).');
+    console.error(HELP);
     exit(1);
   }
+
   const positional = rest.filter((a) => !a.startsWith('--'));
   const flags = rest.filter((a) => a.startsWith('--'));
   const rawDir = positional[0] ?? DEFAULT_DATA_DIR;
