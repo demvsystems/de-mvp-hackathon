@@ -8,5 +8,6 @@ yarn.lock
 **/next-env.d.ts
 **/tsconfig.tsbuildinfo
 packages/db/migrations/
+scripts/*.sh
 *.min.js
 *.min.css
