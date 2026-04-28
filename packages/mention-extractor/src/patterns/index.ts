@@ -3,9 +3,11 @@ import { confluencePageUrlPattern } from './confluence-page-url';
 import { githubIssueShortformPattern } from './github-issue-shortform';
 import { githubIssueUrlPattern } from './github-issue-url';
 import { githubPrUrlPattern } from './github-pr-url';
+import { intercomConvIdPattern } from './intercom-conv-id';
 import { jiraHashtagPattern } from './jira-hashtag';
 import { jiraKeyPattern } from './jira-key';
 import { slackPermalinkPattern } from './slack-permalink';
+import { upvotyPostIdPattern } from './upvoty-post-id';
 
 export type { MentionPattern, MentionMatch } from './types';
 
@@ -20,6 +22,8 @@ export type { MentionPattern, MentionMatch } from './types';
  *   "wie" matchen, würde aber doppelte Edges erzeugen)
  * - confluence_comment_url ⊃ confluence_page_url (Comment ist Page + Anchor)
  * - jira_hashtag ⊃ jira_key (Hashtag ist Key mit `#`-Prefix)
+ * - intercom_conv_id / upvoty_post_id sind disjunkt zu allen anderen Patterns
+ *   (case-sensitiv lowercase, andere Prefixe), Position daher unkritisch.
  */
 export const ALL_PATTERNS = [
   // URL-Patterns (höchste Spezifität, längste Match-Spans)
@@ -31,6 +35,8 @@ export const ALL_PATTERNS = [
   // Shortforms und prefix-getragene Patterns
   githubIssueShortformPattern,
   jiraHashtagPattern,
-  // Freie Keys zuletzt
+  // Freie Token zuletzt
   jiraKeyPattern,
+  intercomConvIdPattern,
+  upvotyPostIdPattern,
 ] as const;
