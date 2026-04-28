@@ -101,6 +101,8 @@ export const topics = pgTable(
     stagnationSeverity: text('stagnation_severity').notNull().default('none'),
 
     centroid: vector('centroid', { dimensions: 1536 }),
+    centroidBodyOnly: vector('centroid_body_only', { dimensions: 1536 }),
+    memberCountBodyOnly: integer('member_count_body_only').notNull().default(0),
 
     payload: jsonb('payload').notNull().default({}),
   },
@@ -119,6 +121,9 @@ export const topics = pgTable(
     index('topics_centroid')
       .using('hnsw', t.centroid.op('vector_cosine_ops'))
       .where(sql`status = 'active' AND centroid IS NOT NULL`),
+    index('topics_centroid_body_only')
+      .using('hnsw', t.centroidBodyOnly.op('vector_cosine_ops'))
+      .where(sql`status = 'active' AND centroid_body_only IS NOT NULL`),
   ],
 );
 
