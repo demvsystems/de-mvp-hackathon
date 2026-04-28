@@ -380,6 +380,9 @@ importers:
 
   packages/mention-extractor:
     dependencies:
+      '@repo/db':
+        specifier: workspace:*
+        version: link:../db
       '@repo/messaging':
         specifier: workspace:*
         version: link:../messaging

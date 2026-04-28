@@ -35,6 +35,7 @@ const SUBSCRIBER_WORKERS: Record<string, SubscriberWorkerSpec> = {
   },
   'mention-extractor': {
     load: () => import('@repo/mention-extractor').then((m) => m.mentionExtractorModule),
+    requiredEnv: ['DATABASE_URL'],
   },
   reviewer: {
     load: () => import('@repo/agent/reviewer').then((m) => m.agentReviewerModule),

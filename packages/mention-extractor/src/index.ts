@@ -6,10 +6,9 @@ import {
   type RecordPayload,
   type Subscriber,
 } from '@repo/messaging';
-
-// Container-Records haben keinen relevanten Body für Mention-Extraktion.
-// Spec Z7: Skip ist sauberer als Body-Scan auf Channel-Topic oder Repo-Description.
-const SKIP_TYPES = new Set(['channel', 'repo', 'project', 'database', 'space', 'user']);
+import { PendingMentions } from './pending';
+import { defaultPublishFn, processNewJiraIssue, processRecord, type PublishFn } from './processor';
+import type { ResolverDeps } from './resolver';
 
 function trace(ctx: MessageContext, kind: string): void {
   console.log(
@@ -23,10 +22,34 @@ function trace(ctx: MessageContext, kind: string): void {
   );
 }
 
-async function dispatch(payload: RecordPayload, ctx: MessageContext, kind: string): Promise<void> {
-  if (SKIP_TYPES.has(payload.type)) return;
-  // Stub: noch keine Pattern-Logik. Folge-Schritte ergänzen findMentions(),
-  // Resolver, pending-Logik und emitMentionEdge().
+/**
+ * Lazy-loaded Production-Deps. Verzögert den `@repo/db`-Import (und damit
+ * den DATABASE_URL-Check) bis zum ersten dispatch — sonst würde der
+ * Modul-Import bereits crashen, wenn DATABASE_URL fehlt. Backend skipped
+ * den Worker via requiredEnv, aber Tests sollen das Modul ohne DB laden
+ * können.
+ */
+let lazyDeps: ResolverDeps | null = null;
+async function getDeps(): Promise<ResolverDeps> {
+  if (!lazyDeps) {
+    const { createDefaultDeps } = await import('./defaultDeps');
+    lazyDeps = createDefaultDeps();
+  }
+  return lazyDeps;
+}
+
+const pending = new PendingMentions();
+
+async function dispatch(
+  payload: RecordPayload,
+  ctx: MessageContext,
+  kind: string,
+  publishFn: PublishFn = defaultPublishFn,
+  deps?: ResolverDeps,
+): Promise<void> {
+  const resolverDeps = deps ?? (await getDeps());
+  await processRecord(payload, ctx, resolverDeps, pending, publishFn);
+  await processNewJiraIssue(payload, ctx, pending, publishFn);
   trace(ctx, kind);
 }
 
@@ -45,3 +68,8 @@ export const mentionExtractorModule: {
       .on(RecordUpdated, (p, ctx) => dispatch(p, ctx, 'record.updated'));
   },
 };
+
+// Re-exports für Tests und integrationsbezogene Nutzung.
+export { processRecord, processNewJiraIssue } from './processor';
+export { PendingMentions } from './pending';
+export type { ResolverDeps } from './resolver';
