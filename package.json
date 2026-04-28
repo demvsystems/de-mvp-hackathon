@@ -26,6 +26,9 @@
     "connectors": "pnpm --filter @repo/connectors-runner start",
     "worker:materializer": "pnpm --filter @repo/materializer start",
     "worker:materializer:provision": "pnpm --filter @repo/materializer provision",
+    "eval": "pnpm --filter @repo/eval test",
+    "eval:setup": "scripts/eval-setup.sh",
+    "prompts:sync": "tsx scripts/sync-prompts.ts",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -35,9 +38,13 @@
   },
   "devDependencies": {
     "husky": "^9.1.7",
+    "langfuse": "^3.38.3",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.7.3",
-    "typescript": "^5"
+    "tsx": "^4.21.0",
+    "typescript": "^5",
+    "yaml": "^2.7.0",
+    "zod": "^4.3.6"
   }
 }

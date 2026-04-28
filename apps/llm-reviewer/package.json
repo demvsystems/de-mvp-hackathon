@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./agent": "./src/agent.ts",
+    "./output-schema": "./src/output-schema.ts"
+  },
   "scripts": {
     "lint": "echo 'no lint'",
     "typecheck": "tsc --noEmit",

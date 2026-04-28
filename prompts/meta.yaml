@@ -1,0 +1,8 @@
+# Sync manifest for `pnpm prompts:sync`. Adding a new entry here +
+# committing the .md file is the full path for landing a new prompt.
+prompts:
+  - name: reviewer.system
+    file: reviewer-system.md
+    type: text
+    labels: [production]
+    tags: [reviewer]
