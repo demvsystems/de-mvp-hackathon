@@ -1,0 +1,66 @@
+{
+  "posts": [
+    {
+      "id": "post_2001",
+      "title": "Add SSO login for enterprise teams",
+      "description": "Large accounts request SAML-based single sign-on.",
+      "status": "open",
+      "board_id": "board_10",
+      "author": {
+        "id": "u_801",
+        "name": "Alex Product"
+      },
+      "createdAt": "2026-04-28T08:30:00.000Z",
+      "updatedAt": "2026-04-28T08:35:00.000Z"
+    },
+    {
+      "id": "post_2002",
+      "title": "Improve mobile dashboard performance",
+      "description": "Dashboard is slow on older Android devices.",
+      "status": "open",
+      "board_id": "board_10",
+      "author": {
+        "id": "u_802",
+        "name": "Chris Ops"
+      },
+      "createdAt": "2026-04-28T08:40:00.000Z",
+      "updatedAt": "2026-04-28T08:42:00.000Z"
+    }
+  ],
+  "votes": [
+    {
+      "id": "vote_9001",
+      "post_id": "post_2001",
+      "user_id": "u_901",
+      "value": 1,
+      "createdAt": "2026-04-28T08:50:00.000Z",
+      "updatedAt": "2026-04-28T08:50:00.000Z"
+    },
+    {
+      "id": "vote_9002",
+      "post_id": "post_2002",
+      "user_id": "u_902",
+      "value": 1,
+      "createdAt": "2026-04-28T08:52:00.000Z",
+      "updatedAt": "2026-04-28T08:52:00.000Z"
+    }
+  ],
+  "comments": [
+    {
+      "id": "comment_7001",
+      "post_id": "post_2001",
+      "user_id": "u_903",
+      "body": "Needed for security review in Q2 rollout.",
+      "createdAt": "2026-04-28T09:00:00.000Z",
+      "updatedAt": "2026-04-28T09:00:00.000Z"
+    },
+    {
+      "id": "comment_7002",
+      "post_id": "post_2002",
+      "user_id": "u_904",
+      "body": "Please prioritize for field teams with weak mobile networks.",
+      "createdAt": "2026-04-28T09:05:00.000Z",
+      "updatedAt": "2026-04-28T09:05:00.000Z"
+    }
+  ]
+}
