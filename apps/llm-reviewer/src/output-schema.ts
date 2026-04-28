@@ -1,7 +1,5 @@
+import { AssessmentCharacter } from '@repo/messaging';
 import { z } from 'zod';
-
-export const AssessmentCharacter = z.enum(['attention', 'opportunity', 'noteworthy', 'calm']);
-export type AssessmentCharacter = z.infer<typeof AssessmentCharacter>;
 
 export const AssessmentSummary = z.object({
   text: z.string().min(1).max(4000),

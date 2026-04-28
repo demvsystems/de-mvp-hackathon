@@ -1,0 +1,221 @@
+import { EdgeObserved, RecordObserved } from '@repo/messaging';
+import {
+  edgeSource,
+  emit,
+  makeEdgeId,
+  predictRecordObservedId,
+  type ConnectorOutput,
+  type Emission,
+  type IsoDateTime,
+} from '../core';
+import {
+  UpvotySnapshot,
+  type UpvotyBoard,
+  type UpvotyComment,
+  type UpvotyPost,
+  type UpvotyUser,
+} from './schema';
+import { SOURCE, boardId, commentId, postId, userId } from './ids';
+
+const EDGE_SOURCE = edgeSource(SOURCE);
+
+/**
+ * Skelett-Mapper für Upvoty (Feature-Voting). Annahmen:
+ * - Posts haben einen Author und gehören zu einem Board.
+ * - Comments haben einen Author und sind über `commented_on` an den Post gehängt.
+ * - Edges einer Post/Comment-Cascade tragen `causation_id` auf das jeweilige
+ *   Record-Event.
+ * - Voter werden als User-Records emittiert, aber Vote-Edges erstmal nicht —
+ *   das Edge-Vokabular aus Z1 hat kein `voted_by`. TODO: mit Datenmodell-Owner
+ *   klären, ob `voted_by` ergänzt werden soll oder eine Mention-/References-
+ *   Edge ausreicht.
+ */
+export function map(item: unknown): ConnectorOutput {
+  const snap = UpvotySnapshot.parse(item);
+  const emissions: Emission[] = [];
+  const now = new Date().toISOString();
+
+  for (const b of snap.boards) {
+    emissions.push(emitBoard(b, now));
+  }
+  for (const u of snap.users) {
+    emissions.push(emitUser(u, now));
+  }
+  for (const p of snap.posts) {
+    emitPostCascade(p, emissions);
+  }
+
+  return { emissions };
+}
+
+function emitBoard(b: UpvotyBoard, occurredAt: IsoDateTime): Emission {
+  const subjectId = boardId(b.id);
+  return emit(RecordObserved, {
+    source: SOURCE,
+    occurred_at: occurredAt,
+    subject_id: subjectId,
+    source_event_id: b.id,
+    payload: {
+      id: subjectId,
+      type: 'board',
+      source: SOURCE,
+      title: b.name,
+      body: null,
+      payload: {
+        upvoty_id: b.id,
+        name: b.name,
+        slug: b.slug ?? null,
+      },
+      created_at: occurredAt,
+      updated_at: occurredAt,
+    },
+  });
+}
+
+function emitUser(u: UpvotyUser, occurredAt: IsoDateTime): Emission {
+  const subjectId = userId(u.id);
+  return emit(RecordObserved, {
+    source: SOURCE,
+    occurred_at: occurredAt,
+    subject_id: subjectId,
+    source_event_id: u.id,
+    payload: {
+      id: subjectId,
+      type: 'user',
+      source: SOURCE,
+      title: u.name,
+      body: null,
+      payload: {
+        upvoty_id: u.id,
+        name: u.name,
+        email: u.email ?? null,
+        is_external: true,
+      },
+      created_at: occurredAt,
+      updated_at: occurredAt,
+    },
+  });
+}
+
+function emitPostCascade(p: UpvotyPost, emissions: Emission[]): void {
+  const postSubjectId = postId(p.id);
+  const authorSubjectId = userId(p.author_id);
+  const boardSubjectId = boardId(p.board_id);
+  const payload = {
+    id: postSubjectId,
+    type: 'post',
+    source: SOURCE,
+    title: p.title,
+    body: p.body,
+    payload: {
+      upvoty_id: p.id,
+      status: p.status,
+      board_id: p.board_id,
+      author_id: p.author_id,
+      vote_count: p.vote_count,
+      voter_count: p.voter_ids.length,
+      comment_count: p.comments.length,
+    },
+    created_at: p.created_at,
+    updated_at: p.created_at,
+  };
+
+  const causationId = predictRecordObservedId({
+    source: SOURCE,
+    subject_id: postSubjectId,
+    occurred_at: p.created_at,
+    payload,
+  });
+
+  emissions.push(
+    emit(RecordObserved, {
+      source: SOURCE,
+      occurred_at: p.created_at,
+      subject_id: postSubjectId,
+      source_event_id: p.id,
+      payload,
+    }),
+  );
+
+  emissions.push(
+    emitEdge('authored_by', postSubjectId, authorSubjectId, p.created_at, causationId),
+  );
+  emissions.push(emitEdge('posted_in', postSubjectId, boardSubjectId, p.created_at, causationId));
+
+  for (const c of p.comments) {
+    emitCommentCascade(c, p.id, postSubjectId, emissions);
+  }
+}
+
+function emitCommentCascade(
+  c: UpvotyComment,
+  postRawId: string,
+  postSubjectId: string,
+  emissions: Emission[],
+): void {
+  const commentSubjectId = commentId(postRawId, c.id);
+  const authorSubjectId = userId(c.author_id);
+  const payload = {
+    id: commentSubjectId,
+    type: 'comment',
+    source: SOURCE,
+    title: null,
+    body: c.body,
+    payload: {
+      upvoty_id: c.id,
+      post_id: postRawId,
+      author_id: c.author_id,
+    },
+    created_at: c.created_at,
+    updated_at: c.created_at,
+  };
+
+  const causationId = predictRecordObservedId({
+    source: SOURCE,
+    subject_id: commentSubjectId,
+    occurred_at: c.created_at,
+    payload,
+  });
+
+  emissions.push(
+    emit(RecordObserved, {
+      source: SOURCE,
+      occurred_at: c.created_at,
+      subject_id: commentSubjectId,
+      source_event_id: c.id,
+      payload,
+    }),
+  );
+
+  emissions.push(
+    emitEdge('commented_on', commentSubjectId, postSubjectId, c.created_at, causationId),
+  );
+  emissions.push(
+    emitEdge('authored_by', commentSubjectId, authorSubjectId, c.created_at, causationId),
+  );
+}
+
+function emitEdge(
+  type: 'posted_in' | 'authored_by' | 'commented_on',
+  fromId: string,
+  toId: string,
+  validFrom: IsoDateTime,
+  causationId: string,
+): Emission {
+  return emit(EdgeObserved, {
+    source: SOURCE,
+    occurred_at: validFrom,
+    subject_id: makeEdgeId(type, fromId, toId),
+    causation_id: causationId,
+    payload: {
+      from_id: fromId,
+      to_id: toId,
+      type,
+      source: EDGE_SOURCE,
+      confidence: 1.0,
+      weight: 1.0,
+      valid_from: validFrom,
+      valid_to: null,
+    },
+  });
+}

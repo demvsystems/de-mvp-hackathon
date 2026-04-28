@@ -27,6 +27,7 @@ export interface AgentConfig<TInput, TOutput> {
   readonly maxTokens?: number;
   readonly temperature?: number;
   readonly client?: Anthropic;
+  readonly toolResultByteLimit?: number;
 }
 
 export interface AgentRunMetadata {

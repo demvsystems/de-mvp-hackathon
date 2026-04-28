@@ -2,6 +2,7 @@ import { sql } from '@repo/db';
 import type {
   AssessmentCreatedPayload,
   EdgeObservedPayload,
+  EmbeddingCreatedPayload,
   MessageContext,
   RecordIdPayload,
   RecordPayload,
@@ -122,6 +123,20 @@ export async function handleTopicSuperseded(payload: TopicSupersededPayload): Pr
        SET status = 'superseded', superseded_by = ${payload.superseded_by}
      WHERE id = ${payload.id}
        AND status <> 'superseded'
+  `;
+}
+
+export async function handleEmbeddingCreated(payload: EmbeddingCreatedPayload): Promise<void> {
+  const vectorLiteral = `[${payload.vector.join(',')}]`;
+  await sql`
+    INSERT INTO embeddings (record_id, chunk_idx, chunk_text, model_version, vector, generated_at)
+    VALUES (${payload.record_id}, ${payload.chunk_idx}, ${payload.chunk_text}, ${payload.model_version},
+            ${vectorLiteral}::vector, ${payload.generated_at})
+    ON CONFLICT (record_id, chunk_idx, model_version) DO UPDATE
+      SET chunk_text   = EXCLUDED.chunk_text,
+          vector       = EXCLUDED.vector,
+          generated_at = EXCLUDED.generated_at
+      WHERE embeddings.generated_at <= EXCLUDED.generated_at
   `;
 }
 

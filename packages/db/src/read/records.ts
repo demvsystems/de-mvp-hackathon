@@ -4,6 +4,19 @@ import { edges, records } from '../schema';
 import type { GetRecordsInput } from './schemas';
 import type { RecordRow } from './types';
 
+const recordColumns = {
+  id: records.id,
+  type: records.type,
+  source: records.source,
+  title: records.title,
+  body: records.body,
+  payload: records.payload,
+  createdAt: records.createdAt,
+  updatedAt: records.updatedAt,
+  ingestedAt: records.ingestedAt,
+  isDeleted: records.isDeleted,
+} as const;
+
 interface RecordWithConfidence extends RecordRow {
   edge_confidence: number | null;
 }
@@ -64,7 +77,12 @@ export async function getRecords(input: GetRecordsInput): Promise<RecordWithConf
   const sortColumn = input.sort_by === 'updated_at' ? records.updatedAt : records.createdAt;
   const orderClause = input.order === 'asc' ? asc(sortColumn) : desc(sortColumn);
 
-  const rows = await db.select().from(records).where(where).orderBy(orderClause).limit(input.limit);
+  const rows = await db
+    .select(recordColumns)
+    .from(records)
+    .where(where)
+    .orderBy(orderClause)
+    .limit(input.limit);
 
   return rows.map((r) => ({ ...r, edge_confidence: null }));
 }
@@ -78,7 +96,7 @@ async function edgeConfidenceSortedQuery(
   const orderDir = input.order === 'asc' ? sql`ASC` : sql`DESC`;
   const rows = await db
     .select({
-      record: records,
+      record: recordColumns,
       edge_confidence: edges.confidence,
     })
     .from(records)

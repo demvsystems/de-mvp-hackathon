@@ -4,6 +4,7 @@ import type { AgentConfig, AgentResult, ToolSpec } from './types';
 
 const DEFAULT_MAX_TURNS = 6;
 const DEFAULT_MAX_TOKENS = 4096;
+const DEFAULT_TOOL_RESULT_BYTES = 50_000;
 
 let sharedClient: Anthropic | null = null;
 function getDefaultClient(): Anthropic {
@@ -14,29 +15,43 @@ function getDefaultClient(): Anthropic {
   return sharedClient;
 }
 
-interface ToolDef {
-  name: string;
-  description: string;
-  input_schema: Anthropic.Messages.Tool.InputSchema;
-}
+type ToolDef = Anthropic.Messages.Tool;
 
+const toolDefCache = new WeakMap<ReadonlyArray<ToolSpec>, ToolDef[]>();
 function toolsToAnthropic(tools: ReadonlyArray<ToolSpec>): ToolDef[] {
-  return tools.map((t) => ({
-    name: t.name,
-    description: t.description,
-    input_schema: z.toJSONSchema(t.inputSchema, {
-      target: 'draft-7',
-    }) as Anthropic.Messages.Tool.InputSchema,
-  }));
+  const cached = toolDefCache.get(tools);
+  if (cached) return cached;
+  const defs: ToolDef[] = tools.map((t, i) => {
+    const def: ToolDef = {
+      name: t.name,
+      description: t.description,
+      input_schema: z.toJSONSchema(t.inputSchema, {
+        target: 'draft-7',
+      }) as Anthropic.Messages.Tool.InputSchema,
+    };
+    // cache_control on the final tool extends caching to all preceding tools.
+    if (i === tools.length - 1) def.cache_control = { type: 'ephemeral' };
+    return def;
+  });
+  toolDefCache.set(tools, defs);
+  return defs;
 }
 
 function findTool(tools: ReadonlyArray<ToolSpec>, name: string): ToolSpec | undefined {
   return tools.find((t) => t.name === name);
 }
 
+function truncateToolContent(content: string, limit: number): string {
+  if (content.length <= limit) return content;
+  const head = content.slice(0, limit);
+  const dropped = content.length - limit;
+  return `${head}\n…[truncated ${dropped} chars to fit tool result limit]`;
+}
+
 async function runToolCall(
   tools: ReadonlyArray<ToolSpec>,
   toolUse: Anthropic.Messages.ToolUseBlock,
+  resultByteLimit: number,
 ): Promise<Anthropic.Messages.ToolResultBlockParam> {
   const tool = findTool(tools, toolUse.name);
   if (!tool) {
@@ -66,7 +81,7 @@ async function runToolCall(
     return {
       type: 'tool_result',
       tool_use_id: toolUse.id,
-      content: JSON.stringify(result, jsonReplacer),
+      content: truncateToolContent(JSON.stringify(result, jsonReplacer), resultByteLimit),
     };
   } catch (err) {
     return {
@@ -107,6 +122,10 @@ function extractJsonCandidate(text: string): string | null {
   return null;
 }
 
+function buildSystemBlocks(system: string): Anthropic.Messages.TextBlockParam[] {
+  return [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }];
+}
+
 export async function runAgent<TInput, TOutput>(
   config: AgentConfig<TInput, TOutput>,
   input: TInput,
@@ -114,15 +133,24 @@ export async function runAgent<TInput, TOutput>(
   const client = config.client ?? getDefaultClient();
   const maxTurns = config.maxTurns ?? DEFAULT_MAX_TURNS;
   const maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
-  const system =
+  const toolResultByteLimit = config.toolResultByteLimit ?? DEFAULT_TOOL_RESULT_BYTES;
+  const systemText =
     typeof config.systemPrompt === 'function' ? config.systemPrompt(input) : config.systemPrompt;
+  const system = buildSystemBlocks(systemText);
   const tools = toolsToAnthropic(config.tools);
 
   const messages: Anthropic.Messages.MessageParam[] = [
     { role: 'user', content: config.userPrompt(input) },
   ];
 
-  let validationRetried = false;
+  let retryUsed = false;
+  const tryRetry = (response: Anthropic.Messages.Message, nudge: string): boolean => {
+    if (retryUsed) return false;
+    retryUsed = true;
+    messages.push({ role: 'assistant', content: response.content });
+    messages.push({ role: 'user', content: nudge });
+    return true;
+  };
 
   for (let turn = 1; turn <= maxTurns; turn++) {
     const requestParams: Anthropic.Messages.MessageCreateParamsNonStreaming = {
@@ -141,7 +169,9 @@ export async function runAgent<TInput, TOutput>(
         (b): b is Anthropic.Messages.ToolUseBlock => b.type === 'tool_use',
       );
 
-      const toolResults = await Promise.all(toolUses.map((tu) => runToolCall(config.tools, tu)));
+      const toolResults = await Promise.all(
+        toolUses.map((tu) => runToolCall(config.tools, tu, toolResultByteLimit)),
+      );
 
       messages.push({ role: 'assistant', content: response.content });
       messages.push({ role: 'user', content: toolResults });
@@ -152,69 +182,61 @@ export async function runAgent<TInput, TOutput>(
       const text = extractFinalText(response.content);
       const candidate = extractJsonCandidate(text);
 
-      if (candidate) {
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(candidate);
-        } catch (err) {
-          if (!validationRetried) {
-            validationRetried = true;
-            messages.push({ role: 'assistant', content: response.content });
-            messages.push({
-              role: 'user',
-              content: `Your response was not valid JSON: ${
-                err instanceof Error ? err.message : String(err)
-              }. Reply ONLY with a valid JSON object that matches the schema.`,
-            });
-            continue;
-          }
-          return {
-            output: config.fallback(input, `JSON parse failed twice: ${String(err)}`),
-            metadata: { turns: turn, fallback_reason: 'json_parse_failed' },
-          };
-        }
-
-        const validated = config.outputSchema.safeParse(parsed);
-        if (validated.success) {
-          return {
-            output: validated.data,
-            metadata: { turns: turn, fallback_reason: null },
-          };
-        }
-
-        if (!validationRetried) {
-          validationRetried = true;
-          messages.push({ role: 'assistant', content: response.content });
-          messages.push({
-            role: 'user',
-            content: `Your response did not match the required schema. Issues: ${JSON.stringify(
-              validated.error.issues,
-            )}. Reply ONLY with a corrected JSON object.`,
-          });
+      if (!candidate) {
+        if (
+          tryRetry(
+            response,
+            'No JSON found in your response. Reply ONLY with a JSON object that matches the schema.',
+          )
+        )
           continue;
-        }
         return {
-          output: config.fallback(
-            input,
-            `schema validation failed twice: ${validated.error.message}`,
-          ),
-          metadata: { turns: turn, fallback_reason: 'schema_validation_failed' },
+          output: config.fallback(input, 'no JSON found in final response'),
+          metadata: { turns: turn, fallback_reason: 'no_json_found' },
         };
       }
 
-      if (!validationRetried) {
-        validationRetried = true;
-        messages.push({ role: 'assistant', content: response.content });
-        messages.push({
-          role: 'user',
-          content:
-            'No JSON found in your response. Reply ONLY with a JSON object that matches the schema.',
-        });
-        continue;
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(candidate);
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        if (
+          tryRetry(
+            response,
+            `Your response was not valid JSON: ${reason}. Reply ONLY with a valid JSON object that matches the schema.`,
+          )
+        )
+          continue;
+        return {
+          output: config.fallback(input, `JSON parse failed twice: ${reason}`),
+          metadata: { turns: turn, fallback_reason: 'json_parse_failed' },
+        };
       }
+
+      const validated = config.outputSchema.safeParse(parsed);
+      if (validated.success) {
+        return {
+          output: validated.data,
+          metadata: { turns: turn, fallback_reason: null },
+        };
+      }
+
+      if (
+        tryRetry(
+          response,
+          `Your response did not match the required schema. Issues: ${JSON.stringify(
+            validated.error.issues,
+          )}. Reply ONLY with a corrected JSON object.`,
+        )
+      )
+        continue;
       return {
-        output: config.fallback(input, 'no JSON found in final response'),
-        metadata: { turns: turn, fallback_reason: 'no_json_found' },
+        output: config.fallback(
+          input,
+          `schema validation failed twice: ${validated.error.message}`,
+        ),
+        metadata: { turns: turn, fallback_reason: 'schema_validation_failed' },
       };
     }
 

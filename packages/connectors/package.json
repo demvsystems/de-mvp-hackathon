@@ -11,14 +11,22 @@
   "scripts": {
     "lint": "echo 'no lint'",
     "typecheck": "tsc --noEmit",
-    "test": "echo 'no tests' && exit 0",
-    "build": "echo 'no build'"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "echo 'no build'",
+    "run:slack": "tsx scripts/run.ts slack",
+    "run:jira": "tsx scripts/run.ts jira",
+    "run:intercom": "tsx scripts/run.ts intercom",
+    "run:upvoty": "tsx scripts/run.ts upvoty"
   },
   "dependencies": {
+    "@repo/messaging": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "typescript": "^5"
+    "tsx": "^4.21.0",
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   }
 }
