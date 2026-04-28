@@ -38,6 +38,9 @@
     ]
   },
   "devDependencies": {
+    "@langfuse/client": "5.2.0",
+    "@langfuse/otel": "5.2.0",
+    "@langfuse/tracing": "5.2.0",
     "husky": "^9.1.7",
     "langfuse": "^3.38.3",
     "lint-staged": "^16.4.0",
