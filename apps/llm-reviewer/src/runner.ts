@@ -65,6 +65,8 @@ async function reviewAndPublish(
       prompt_version: result.metadata.prompt.version,
       prompt_label: result.metadata.prompt.label,
       prompt_from_fallback: result.metadata.prompt.from_fallback,
+      trace_id: result.metadata.trace_id,
+      trace_url: result.metadata.trace_url,
       duration_ms: Date.now() - startedAt,
       assessment_event_id: ack.event_id,
       duplicate: ack.duplicate,

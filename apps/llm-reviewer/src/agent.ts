@@ -24,4 +24,25 @@ export const reviewerAgent = defineAgent<ReviewerInput, AssessmentOutput>({
   fallback: fallbackAssessment,
   maxTurns: 6,
   temperature: 0,
+  observability: {
+    traceName: 'llm-reviewer.review-topic',
+    traceInput: (input) => ({
+      topic_id: input.topicId,
+      triggered_by: input.triggeredBy,
+    }),
+    traceOutput: (output) => ({
+      character: output.character,
+      escalation_score: output.escalation_score,
+      summary: output.summary,
+      reasoning: output.reasoning,
+    }),
+    sessionId: (input) => input.topicId,
+    tags: (input) => ['feature:topic-review', `trigger:${input.triggeredBy}`],
+    metadata: (input) => ({
+      feature: 'topic-review',
+      triggered_by: input.triggeredBy,
+      assessment_schema: 'AssessmentOutput.v1',
+      prompt_label: REVIEWER_PROMPT_LABEL,
+    }),
+  },
 });
