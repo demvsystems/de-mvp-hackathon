@@ -2,6 +2,7 @@ import { eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../client';
 import { topics } from '../schema';
 import type { GetTopicsInput } from './schemas';
+import { pgTextArray } from './sql-helpers';
 import type { RecentAssessment, TopicRow, TopicWithAssessments } from './types';
 
 export interface ListActiveTopicsInput {
@@ -12,7 +13,7 @@ export interface ListActiveTopicsInput {
 type RankedAssessment = {
   topicId: string;
   assessor: string;
-  assessedAt: Date;
+  assessedAt: Date | string;
   character: string;
   escalationScore: number;
   reasoning: unknown;
@@ -38,7 +39,7 @@ export async function getTopics(input: GetTopicsInput): Promise<TopicWithAssessm
             SELECT a.*,
                    ROW_NUMBER() OVER (PARTITION BY topic_id ORDER BY assessed_at DESC) AS rn
             FROM topic_assessments a
-            WHERE a.topic_id = ANY(ARRAY[${input.ids}]::text[])
+            WHERE a.topic_id = ANY(${pgTextArray(input.ids)})
           ) ranked
           WHERE rn <= ${input.recent_assessments_limit}
         `)
@@ -52,7 +53,9 @@ export async function getTopics(input: GetTopicsInput): Promise<TopicWithAssessm
     const list = grouped.get(a.topicId) ?? [];
     list.push({
       assessor: a.assessor,
-      assessedAt: a.assessedAt,
+      // Raw db.execute via aliased column doesn't always trigger postgres-js
+      // timestamp parsing, so coerce defensively to honor the Date contract.
+      assessedAt: a.assessedAt instanceof Date ? a.assessedAt : new Date(a.assessedAt),
       character: a.character,
       escalationScore: a.escalationScore,
       reasoning: a.reasoning,
@@ -99,7 +102,7 @@ export async function listActiveTopics(
             SELECT a.*,
                    ROW_NUMBER() OVER (PARTITION BY topic_id ORDER BY assessed_at DESC) AS rn
             FROM topic_assessments a
-            WHERE a.topic_id = ANY(ARRAY[${ids}]::text[])
+            WHERE a.topic_id = ANY(${pgTextArray(ids)})
           ) ranked
           WHERE rn <= ${recentLimit}
         `)
@@ -110,7 +113,9 @@ export async function listActiveTopics(
     const list = grouped.get(a.topicId) ?? [];
     list.push({
       assessor: a.assessor,
-      assessedAt: a.assessedAt,
+      // Raw db.execute via aliased column doesn't always trigger postgres-js
+      // timestamp parsing, so coerce defensively to honor the Date contract.
+      assessedAt: a.assessedAt instanceof Date ? a.assessedAt : new Date(a.assessedAt),
       character: a.character,
       escalationScore: a.escalationScore,
       reasoning: a.reasoning,

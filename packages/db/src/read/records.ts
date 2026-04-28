@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, inArray, lte, notInArray, sql, type SQL } from
 import { db } from '../client';
 import { edges, records } from '../schema';
 import type { GetRecordsInput } from './schemas';
+import { pgTextArray } from './sql-helpers';
 import type { RecordRow } from './types';
 
 const recordColumns = {
@@ -61,7 +62,7 @@ export async function getRecords(input: GetRecordsInput): Promise<RecordWithConf
     subquerySources.push(sql`
       EXISTS (SELECT 1 FROM ${edges} e
               WHERE e.from_id = ${records.id}
-                AND e.to_id = ANY(ARRAY[${input.posted_in}]::text[])
+                AND e.to_id = ANY(${pgTextArray(input.posted_in)})
                 AND e.type = 'posted_in'
                 AND e.valid_to IS NULL)
     `);
