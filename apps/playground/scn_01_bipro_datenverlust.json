@@ -1,0 +1,68 @@
+{
+  "metadata": {
+    "parent_file": "apps/playground/Tom/pwx_signal_scenarios.json",
+    "version": "1.0.0",
+    "language": "de"
+  },
+  "scenario": {
+    "id": "scn_01_bipro_datenverlust",
+    "title": "Der unsichtbare Datenverlust",
+    "cluster": "bipro_bestandsuebertragung",
+    "theme": "Technische Schnittstellenluecke fuehrt zu Datenverlust bei Bestandsuebertragung und eskaliert ueber mehrere Kanaele.",
+    "timeframe": {
+      "first_signal": "2025_q4",
+      "escalation": "2026_q1"
+    },
+    "signal_sources": [
+      "intercom",
+      "slack_internal",
+      "facebook",
+      "jira",
+      "meeting_transcript"
+    ],
+    "signal_density": {
+      "intercom_threads": 3,
+      "facebook_posts": 3,
+      "slack_messages": 1,
+      "jira_tickets": 1,
+      "meeting_transcripts": 1
+    },
+    "core_causal_chain": [
+      "bipro_430_4_nicht_unterstuetzt",
+      "gdv_ausfaelle_concordia",
+      "sparte_und_zahlweise_verloren",
+      "maklerfrust_und_nachpflege",
+      "deal_risiko"
+    ],
+    "business_impact": {
+      "impact_type": [
+        "data_quality",
+        "revenue_risk",
+        "customer_satisfaction"
+      ],
+      "severity": "high",
+      "evidence": [
+        "mehrere_intercom_faelle",
+        "facebook_häufung",
+        "won_deal_mit_ultimatum"
+      ]
+    },
+    "existing_artifacts": [
+      {
+        "type": "jira",
+        "id": "demv_4127",
+        "current_priority": "low",
+        "status": "backlog"
+      }
+    ],
+    "agent_expected_outcome": {
+      "cluster_type": "eskalierendes_problemcluster",
+      "recommended_actions": [
+        "jira_prioritaet_hoch",
+        "produktteam_taggen",
+        "vertrieb_briefen",
+        "betroffene_makler_liste_erstellen"
+      ]
+    }
+  }
+}
