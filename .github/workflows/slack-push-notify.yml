@@ -1,0 +1,71 @@
+name: slack-push-notify
+
+on:
+  push:
+
+permissions: {}
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post Slack thread reply
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+          SLACK_THREAD_TS: ${{ secrets.SLACK_THREAD_TS }}
+        run: |
+          set -euo pipefail
+
+          : "${SLACK_TOKEN:?Set the SLACK_TOKEN repository secret.}"
+          : "${SLACK_CHANNEL_ID:?Set the SLACK_CHANNEL_ID repository secret.}"
+          : "${SLACK_THREAD_TS:?Set the SLACK_THREAD_TS repository secret.}"
+
+          repo="${GITHUB_REPOSITORY}"
+          branch="${GITHUB_REF_NAME}"
+          actor="${GITHUB_ACTOR}"
+          repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+
+          deleted="$(jq -r '.deleted // false' "$GITHUB_EVENT_PATH")"
+          compare_url="$(jq -r '.compare // empty' "$GITHUB_EVENT_PATH")"
+          commit_count="$(jq -r '.commits | length' "$GITHUB_EVENT_PATH")"
+          head_sha="$(jq -r '.after // empty' "$GITHUB_EVENT_PATH")"
+          head_message="$(jq -r '.head_commit.message // "" | split("\n")[0]' "$GITHUB_EVENT_PATH")"
+
+          if [ "$deleted" = "true" ]; then
+            text="Branch deleted in <${repo_url}|${repo}>: \`${branch}\` by ${actor}"
+          else
+            short_sha="${head_sha:0:7}"
+            target_url="${compare_url:-$repo_url}"
+            text="Push to <${target_url}|${repo}:${branch}> by ${actor}: ${commit_count} commit(s), head \`${short_sha}\`"
+
+            if [ -n "$head_message" ]; then
+              text="${text} - ${head_message}"
+            fi
+          fi
+
+          payload="$(
+            jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg thread_ts "$SLACK_THREAD_TS" \
+              --arg text "$text" \
+              '{
+                channel: $channel,
+                thread_ts: $thread_ts,
+                text: $text,
+                unfurl_links: false,
+                unfurl_media: false
+              }'
+          )"
+
+          response="$(
+            curl -sS -X POST "https://slack.com/api/chat.postMessage" \
+              -H "Authorization: Bearer ${SLACK_TOKEN}" \
+              -H "Content-Type: application/json; charset=utf-8" \
+              --data "$payload"
+          )"
+
+          if [ "$(jq -r '.ok' <<<"$response")" != "true" ]; then
+            echo "Slack API error: $(jq -r '.error // "unknown_error"' <<<"$response")"
+            exit 1
+          fi
