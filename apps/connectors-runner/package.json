@@ -12,7 +12,8 @@
     "build": "echo 'no build'"
   },
   "dependencies": {
-    "@repo/connectors": "workspace:*"
+    "@repo/connectors": "workspace:*",
+    "@repo/messaging": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20",
