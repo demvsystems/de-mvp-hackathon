@@ -1,0 +1,22 @@
+{
+  "name": "@repo/connectors-runner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/run.ts",
+    "start": "tsx src/run.ts",
+    "lint": "echo 'no lint'",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'no tests' && exit 0",
+    "build": "echo 'no build'"
+  },
+  "dependencies": {
+    "@repo/connectors": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  }
+}
