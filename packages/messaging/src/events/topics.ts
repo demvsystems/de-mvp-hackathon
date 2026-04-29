@@ -10,8 +10,8 @@ export const TopicCreatedPayload = z.object({
     cluster_size: z.number().int(),
     intra_cluster_distance_avg: z.number(),
   }),
-  centroid_body_only: z.array(z.number()).nullable().default(null),
-  member_count_body_only: z.number().int().nullable().default(null),
+  centroid: z.array(z.number()).nullable().default(null),
+  member_count: z.number().int().nullable().default(null),
 });
 export type TopicCreatedPayload = z.infer<typeof TopicCreatedPayload>;
 
@@ -19,8 +19,8 @@ export const TopicUpdatedPayload = z.object({
   id: z.string(),
   label: z.string().nullable().default(null),
   description: z.string().nullable().default(null),
-  centroid_body_only: z.array(z.number()).nullable().default(null),
-  member_count_body_only: z.number().int().nullable().default(null),
+  centroid: z.array(z.number()).nullable().default(null),
+  member_count: z.number().int().nullable().default(null),
 });
 export type TopicUpdatedPayload = z.infer<typeof TopicUpdatedPayload>;
 
@@ -40,6 +40,7 @@ export const TopicCreated = defineEvent({
   event_type: 'topic.created',
   subject_template: 'events.topic.created',
   subject_kind: 'topic',
+  schema_version: 2,
   payload: TopicCreatedPayload,
 });
 
@@ -47,6 +48,7 @@ export const TopicUpdated = defineEvent({
   event_type: 'topic.updated',
   subject_template: 'events.topic.updated',
   subject_kind: 'topic',
+  schema_version: 2,
   payload: TopicUpdatedPayload,
 });
 
