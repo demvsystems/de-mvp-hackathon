@@ -1,25 +1,34 @@
-import { argv, exit } from 'node:process';
+import { argv, env, exit } from 'node:process';
 import { isAbsolute, resolve } from 'node:path';
 import { closeConnection } from '@repo/messaging';
 import { intercomConnector, jiraConnector, slackConnector, upvotyConnector } from '../src';
-import type { ConnectorOutput, Emission } from '../src/core';
+import type { ConnectorOutput, Emission, IngestionSource } from '../src/core';
+import { SlackApiSource } from '../src/slack/api-source';
+import type { SlackSnapshot } from '../src/slack/schema';
+
+type SourceMode = 'snapshot' | 'api';
 
 interface RunOptions {
   name: string;
   dataDir: string;
   publish: boolean;
+  source: SourceMode;
+  slackChannel: string | undefined;
+  slackOldest: string | undefined;
 }
 
 async function main(): Promise<void> {
   const opts = parseArgs();
 
   // Klarer Mode-Banner auf stderr, damit es im Output nicht versteckt ist.
+  const sourceLabel =
+    opts.source === 'api' ? `api channel=${opts.slackChannel}` : `snapshot ${opts.dataDir}`;
   console.error(
-    `[connectors:${opts.name}] ${opts.publish ? 'PUBLISH → NATS' : 'preview (stdout)'} | data: ${opts.dataDir}`,
+    `[connectors:${opts.name}] ${opts.publish ? 'PUBLISH → NATS' : 'preview (stdout)'} | source: ${sourceLabel}`,
   );
 
   let total = 0;
-  for await (const emission of streamEmissions(opts.name, opts.dataDir)) {
+  for await (const emission of streamEmissions(opts)) {
     total += 1;
     if (opts.publish) {
       const ack = await emission.publish();
@@ -38,28 +47,62 @@ async function main(): Promise<void> {
   }
 }
 
-async function* streamEmissions(name: string, dir: string): AsyncIterable<Emission> {
+async function* streamEmissions(opts: RunOptions): AsyncIterable<Emission> {
   // Switch statt Registry: behält die typed ConnectorSpec<TItem>-Generics pro Branch.
-  switch (name) {
-    case 'slack':
-      yield* iterEmissions(slackConnector.read(dir), slackConnector.map);
+  switch (opts.name) {
+    case 'slack': {
+      const reader: IngestionSource<SlackSnapshot> =
+        opts.source === 'api' ? buildSlackApiSource(opts) : slackConnector.read(opts.dataDir);
+      yield* iterEmissions(reader, slackConnector.map);
       return;
+    }
     case 'jira':
-      yield* iterEmissions(jiraConnector.read(dir), jiraConnector.map);
+      assertSnapshotMode(opts);
+      yield* iterEmissions(jiraConnector.read(opts.dataDir), jiraConnector.map);
       return;
     case 'intercom':
-      yield* iterEmissions(intercomConnector.read(dir), intercomConnector.map);
+      assertSnapshotMode(opts);
+      yield* iterEmissions(intercomConnector.read(opts.dataDir), intercomConnector.map);
       return;
     case 'upvoty':
-      yield* iterEmissions(upvotyConnector.read(dir), upvotyConnector.map);
+      assertSnapshotMode(opts);
+      yield* iterEmissions(upvotyConnector.read(opts.dataDir), upvotyConnector.map);
       return;
     default:
-      throw new Error(`Unbekannter Connector: ${name}`);
+      throw new Error(`Unbekannter Connector: ${opts.name}`);
   }
 }
 
+function assertSnapshotMode(opts: RunOptions): void {
+  if (opts.source !== 'snapshot') {
+    throw new Error(
+      `Connector "${opts.name}" unterstützt aktuell nur --source=snapshot. Live-API ist nur für slack implementiert.`,
+    );
+  }
+}
+
+function buildSlackApiSource(opts: RunOptions): SlackApiSource {
+  const token = env['SLACK_BOT_TOKEN'];
+  if (!token || token.length === 0) {
+    throw new Error(
+      'SLACK_BOT_TOKEN ist nicht gesetzt. Trage das Bot-Token (xoxb-...) der Slack-App in die .env ein.',
+    );
+  }
+  const channelId = opts.slackChannel ?? env['SLACK_CHANNEL_ID'];
+  if (!channelId || channelId.length === 0) {
+    throw new Error(
+      'Slack-Channel-ID fehlt. Setze SLACK_CHANNEL_ID in .env oder übergib --channel=C12345.',
+    );
+  }
+  return new SlackApiSource({
+    token,
+    channelId,
+    ...(opts.slackOldest !== undefined ? { oldest: opts.slackOldest } : {}),
+  });
+}
+
 async function* iterEmissions<T>(
-  reader: { items(): AsyncIterable<T> },
+  reader: IngestionSource<T>,
   map: (item: T) => ConnectorOutput,
 ): AsyncIterable<Emission> {
   for await (const item of reader.items()) {
@@ -85,6 +128,11 @@ Flags:
   --publish         Events ans messaging-Bus (NATS) senden statt nur preview.
                     Voraussetzung: NATS läuft (docker-compose up -d nats) und
                     Stream "EVENTS" ist provisioniert (pnpm worker:materializer:provision).
+  --source=<mode>   snapshot (default) oder api. api zieht live aus der
+                    Source-API statt einer JSON-Datei. Aktuell nur slack.
+  --channel=<id>    Slack-Channel-ID (z. B. C12345). Nur bei --source=api.
+                    Alternativ SLACK_CHANNEL_ID aus .env.
+  --oldest=<ts>     Optional. Slack-Backfill-Cutoff als Unix-ts-string.
   --help, -h        Diese Hilfe anzeigen.
 
 Modes:
@@ -92,9 +140,11 @@ Modes:
   --publish         Live-Publish an NATS-JetStream.
 
 Beispiele:
-  pnpm connectors:slack                       # Preview
-  pnpm connectors:slack -- --publish          # echt publishen (-- vor dem Flag!)
-  pnpm connectors:jira ./mein/anderer/pfad    # Override des data-dir
+  pnpm connectors:slack                                 # Preview, Snapshot
+  pnpm connectors:slack -- --publish                    # echt publishen
+  pnpm connectors:jira ./mein/anderer/pfad              # Override des data-dir
+  pnpm connectors:slack -- --source=api --channel=C123  # live aus Slack
+  pnpm connectors:slack -- --source=api --publish       # live + an NATS
 `;
 
 function parseArgs(): RunOptions {
@@ -116,11 +166,28 @@ function parseArgs(): RunOptions {
   const rawDir = positional[0] ?? DEFAULT_DATA_DIR;
   const baseDir = process.env['INIT_CWD'] ?? process.cwd();
   const dataDir = isAbsolute(rawDir) ? rawDir : resolve(baseDir, rawDir);
+
+  const sourceFlag = readFlagValue(flags, '--source');
+  if (sourceFlag !== undefined && sourceFlag !== 'snapshot' && sourceFlag !== 'api') {
+    throw new Error(`Ungültiger --source=${sourceFlag}. Erlaubt: snapshot, api.`);
+  }
+  const source: SourceMode = sourceFlag === 'api' ? 'api' : 'snapshot';
+
   return {
     name,
     dataDir,
     publish: flags.includes('--publish'),
+    source,
+    slackChannel: readFlagValue(flags, '--channel'),
+    slackOldest: readFlagValue(flags, '--oldest'),
   };
+}
+
+function readFlagValue(flags: string[], name: string): string | undefined {
+  const prefix = `${name}=`;
+  const hit = flags.find((f) => f.startsWith(prefix));
+  if (hit === undefined) return undefined;
+  return hit.slice(prefix.length);
 }
 
 main().catch((err) => {
