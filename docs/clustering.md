@@ -43,6 +43,11 @@ For each `EmbeddingCreated` event with strategy `with-neighbors`:
    - otherwise → **create** a new topic seeded with this vector (`member_count = 1`). Emit `TopicCreated`.
 4. **Emit edge** `record ─discusses─► topic` (`EdgeObserved`) with
    `confidence = clamp(1 − distance / threshold, 0, 1)` and the cluster distance attached as evidence.
+5. **Recompute activity** for the affected topic (`recomputeTopicActivity` in `activity.ts`). One SQL aggregation against `edges`+`records` updates `member_count`, `source_count`, `unique_authors_7d`, `velocity_24h`, `velocity_7d_avg`, `spread_24h`, `first_activity_at`, `last_activity_at`, `activity_trend`, `stagnation_signal_count`, `stagnation_severity`, `computed_at`. Failures here are logged but do not block the clustering decision — the `discusses` edge is the source of truth, the next recompute on the same topic catches up.
+
+## Activity recompute
+
+After every clustering decision the affected topic's activity columns are refilled in one pass — design lifted from Zettel 9. Trend derivation matches `scripts/preseed-expected-topics.ts` so live and pre-seeded topics use the same heuristic. Stagnation severity is intentionally simplified for the pilot (`dormant` trend → `low`, otherwise `none`); the full follow-up-edge analysis from Zettel 9 is a Phase-2 additive change.
 
 ## Threshold
 
