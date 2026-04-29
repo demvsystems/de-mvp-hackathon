@@ -8,7 +8,7 @@ import {
   type RecordPayload,
   type Subscriber,
 } from '@repo/messaging';
-import { embedRecordBodyOnly, embedRecordWithNeighbors } from './embed';
+import { embedRecordWithNeighbors } from './embed';
 import { fetchRecord, recordRowToPayload } from './neighbors';
 
 const SKIP_TYPES = new Set(['channel', 'repo', 'project', 'database', 'space', 'user']);
@@ -43,15 +43,7 @@ async function dispatchRecord(
   kind: string,
 ): Promise<void> {
   if (SKIP_TYPES.has(payload.type)) return;
-  // Body-only must succeed (or NAK) — it's the canonical embedding everyone
-  // depends on. With-neighbors is best-effort: a DB read failure or stale
-  // neighbor must not poison the body-only delivery.
-  await embedRecordBodyOnly(payload, ctx);
-  try {
-    await embedRecordWithNeighbors(payload, ctx);
-  } catch (err) {
-    logFailure('with-neighbors', ctx, err);
-  }
+  await embedRecordWithNeighbors(payload, ctx);
   trace(ctx, kind);
 }
 

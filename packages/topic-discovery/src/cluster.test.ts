@@ -19,7 +19,7 @@ describe('parseStrategy', () => {
   });
 
   it('STRATEGY_BODY_ONLY matches what parseStrategy yields for the embedder default', () => {
-    expect(parseStrategy('openai-small-3:body-only:v1')).toBe(STRATEGY_BODY_ONLY);
+    expect(parseStrategy('openai-small-3:with-neighbors:v1')).toBe(STRATEGY_BODY_ONLY);
   });
 });
 

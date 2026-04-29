@@ -1,7 +1,7 @@
 import { closeConnection, provisionConsumer, provisionStream } from '@repo/messaging';
 
 export const TOPIC_DISCOVERY_CONSUMER = 'topic-discovery';
-export const TOPIC_DISCOVERY_FILTER_SUBJECT = 'events.embedding.created.body-only';
+export const TOPIC_DISCOVERY_FILTER_SUBJECT = 'events.embedding.created.with-neighbors';
 
 export async function provisionTopicDiscovery(): Promise<void> {
   await provisionStream();

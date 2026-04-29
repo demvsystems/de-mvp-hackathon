@@ -10,7 +10,7 @@ function makePayload(overrides: Partial<EmbeddingCreatedPayload> = {}): Embeddin
     record_id: 'slack:msg:T01ABC/C02DEF/1714028591.012345',
     chunk_idx: 0,
     chunk_text: 'BiPro 430.4 ist heute kaputt',
-    model_version: 'openai-small-3:body-only:v1',
+    model_version: 'openai-small-3:with-neighbors:v1',
     vector: [0.1, -0.2, 0.3],
     generated_at: '2026-04-15T10:42:33.000Z',
     ...overrides,
@@ -29,7 +29,7 @@ function makeCtx(): MessageContext {
       source_event_id: null,
       subject_kind: 'embedding',
       subject_id:
-        'embedding:slack:msg:T01ABC/C02DEF/1714028591.012345:0:openai-small-3:body-only:v1',
+        'embedding:slack:msg:T01ABC/C02DEF/1714028591.012345:0:openai-small-3:with-neighbors:v1',
       payload: {},
       evidence: null,
       causation_id: null,
@@ -77,10 +77,10 @@ function makeDeps(overrides: Partial<DiscoveryDeps> = {}): {
 }
 
 describe('discoverTopic — strategy gate', () => {
-  it('skips non-body-only strategies (no DB or publish calls)', async () => {
+  it('skips non-with-neighbors strategies (no DB or publish calls)', async () => {
     const { deps, calls } = makeDeps();
     await discoverTopic(
-      makePayload({ model_version: 'openai-small-3:with-neighbors:v1' }),
+      makePayload({ model_version: 'openai-small-3:body-only:v1' }),
       makeCtx(),
       deps,
     );
@@ -128,7 +128,7 @@ describe('discoverTopic — no nearest topic', () => {
 
     const evidence = edgeEvt?.input.evidence as { cluster_distance: number; strategy: string };
     expect(evidence.cluster_distance).toBe(0);
-    expect(evidence.strategy).toBe('body-only');
+    expect(evidence.strategy).toBe('with-neighbors');
   });
 });
 
