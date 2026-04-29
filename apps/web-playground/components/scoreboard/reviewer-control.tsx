@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -15,10 +15,18 @@ interface Worker {
 const POLL_MS = 2000;
 const REVIEWER = 'reviewer';
 
+const noopSubscribe = (): (() => void) => () => {};
+const trueSnapshot = (): boolean => true;
+const falseSnapshot = (): boolean => false;
+
 export function ReviewerControl() {
   const [state, setState] = useState<WorkerState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Hydration-Guard: zustandsabhängige Buttons erst nach Mount rendern, damit
+  // der Server keine `disabled={true}`-Variante emittiert, die base-ui beim
+  // SSR/CSR uneinheitlich serialisiert (führt sonst zum Hydration-Mismatch).
+  const hydrated = useSyncExternalStore(noopSubscribe, trueSnapshot, falseSnapshot);
 
   const refresh = useCallback(async () => {
     const res = await fetch('/api/admin/workers/workers', { cache: 'no-store' });
@@ -117,12 +125,16 @@ export function ReviewerControl() {
         {error && <div className="text-destructive truncate text-xs">{error}</div>}
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {isRunning ? (
+        {hydrated && isRunning ? (
           <Button size="sm" variant="outline" disabled={busy} onClick={() => act('stop')}>
             Pause
           </Button>
         ) : (
-          <Button size="sm" disabled={busy || state === null} onClick={() => act('start')}>
+          <Button
+            size="sm"
+            disabled={hydrated ? busy || state === null : false}
+            onClick={() => act('start')}
+          >
             Start reviewer
           </Button>
         )}
