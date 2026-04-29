@@ -6,7 +6,10 @@
     { "id": "u_901", "name": "Voter A" },
     { "id": "u_902", "name": "Voter B" },
     { "id": "u_903", "name": "Comment A" },
-    { "id": "u_904", "name": "Comment B" }
+    { "id": "u_904", "name": "Comment B" },
+    { "id": "u_eva_friedrich", "name": "Eva Friedrich", "email": "eva.friedrich@bigcorp.example" },
+    { "id": "u_demo_user", "name": "Demo User", "email": "demo.user@example.com" },
+    { "id": "u_thomas_berger", "name": "Thomas Berger", "email": "thomas.berger@retailer.example" }
   ],
   "posts": [
     {
@@ -17,8 +20,8 @@
       "board_id": "board_10",
       "author_id": "u_801",
       "created_at": "2026-04-28T08:30:00.000Z",
-      "vote_count": 1,
-      "voter_ids": ["u_901"],
+      "vote_count": 2,
+      "voter_ids": ["u_eva_friedrich", "u_901"],
       "comments": [
         {
           "id": "comment_7001",
@@ -42,8 +45,8 @@
       "board_id": "board_10",
       "author_id": "u_802",
       "created_at": "2026-04-28T08:40:00.000Z",
-      "vote_count": 1,
-      "voter_ids": ["u_902"],
+      "vote_count": 2,
+      "voter_ids": ["u_thomas_berger", "u_902"],
       "comments": [
         {
           "id": "comment_7002",
@@ -74,8 +77,8 @@
       "board_id": "board_10",
       "author_id": "u_802",
       "created_at": "2026-04-29T07:00:00.000Z",
-      "vote_count": 3,
-      "voter_ids": ["u_901", "u_902", "u_903"],
+      "vote_count": 4,
+      "voter_ids": ["u_demo_user", "u_901", "u_902", "u_903"],
       "comments": [
         {
           "id": "comment_7003",
