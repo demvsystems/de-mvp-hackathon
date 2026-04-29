@@ -27,6 +27,7 @@ export interface DiscoveryDeps {
   findNearestActiveTopic(vectorLit: string): Promise<NearestTopicState | null>;
   isAlreadyMember(recordId: string, topicId: string): Promise<boolean>;
   publishWithPersist: typeof publishWithPersist;
+  recomputeTopicActivity(topicId: string): Promise<void>;
 }
 
 function incrementalMean(
@@ -134,4 +135,13 @@ export async function discoverTopic(
     },
     causation_id: ctx.envelope.event_id,
   });
+
+  try {
+    await deps.recomputeTopicActivity(topicId);
+  } catch (err) {
+    // Activity-Recompute darf die Clustering-Entscheidung nicht blockieren —
+    // der discusses-Edge ist persistiert und Source of Truth. Nächster
+    // Recompute auf demselben Topic holt die Metriken nach.
+    console.error('[topic-discovery] recomputeTopicActivity failed', { topicId, err });
+  }
 }

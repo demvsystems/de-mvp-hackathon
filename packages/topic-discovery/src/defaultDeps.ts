@@ -1,5 +1,6 @@
 import { sql } from '@repo/db';
 import { publishWithPersist } from '@repo/materializer';
+import { recomputeTopicActivity } from './activity';
 import { TOPIC_DISCOVERY_SOURCE } from './cluster';
 import type { DiscoveryDeps } from './discover';
 
@@ -54,4 +55,6 @@ export const defaultDeps: DiscoveryDeps = {
   },
 
   publishWithPersist,
+
+  recomputeTopicActivity,
 };

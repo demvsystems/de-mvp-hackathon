@@ -57,6 +57,7 @@ function makeDeps(overrides: Partial<DiscoveryDeps> = {}): {
     findNearestActiveTopic: ReturnType<typeof vi.fn>;
     isAlreadyMember: ReturnType<typeof vi.fn>;
     publishWithPersist: ReturnType<typeof vi.fn>;
+    recomputeTopicActivity: ReturnType<typeof vi.fn>;
     published: PublishCall[];
   };
 } {
@@ -68,6 +69,7 @@ function makeDeps(overrides: Partial<DiscoveryDeps> = {}): {
       published.push({ event_type: event.event_type, input: input as PublishCall['input'] });
       return { event_id: 'evt_fake', seq: 1, stream: 'EVENTS', duplicate: false };
     }),
+    recomputeTopicActivity: vi.fn(async (): Promise<void> => undefined),
     published,
   };
 
@@ -76,6 +78,7 @@ function makeDeps(overrides: Partial<DiscoveryDeps> = {}): {
     isAlreadyMember: overrides.isAlreadyMember ?? calls.isAlreadyMember,
     publishWithPersist: (overrides.publishWithPersist ??
       calls.publishWithPersist) as DiscoveryDeps['publishWithPersist'],
+    recomputeTopicActivity: overrides.recomputeTopicActivity ?? calls.recomputeTopicActivity,
   };
   return { deps, calls };
 }
@@ -254,6 +257,41 @@ describe('discoverTopic — re-embed idempotency', () => {
       'topic:already-member',
     );
     expect(calls.published).toHaveLength(0);
+    expect(calls.recomputeTopicActivity).not.toHaveBeenCalled();
+  });
+});
+
+describe('discoverTopic — recompute hook', () => {
+  it('recomputes activity for the affected topic after the discusses edge is published', async () => {
+    const { deps, calls } = makeDeps({
+      findNearestActiveTopic: vi.fn(
+        async (): Promise<NearestTopicState | null> => ({
+          id: 'topic:7c8d9e1f-2a3b-existing',
+          distance: 0.1,
+          centroid: [0, 0, 0],
+          memberCount: 4,
+        }),
+      ),
+    });
+
+    await discoverTopic(makePayload(), makeCtx(), deps);
+
+    expect(calls.recomputeTopicActivity).toHaveBeenCalledTimes(1);
+    expect(calls.recomputeTopicActivity).toHaveBeenCalledWith('topic:7c8d9e1f-2a3b-existing');
+  });
+
+  it('swallows recompute failures so clustering decisions still complete', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { deps, calls } = makeDeps({
+      recomputeTopicActivity: vi.fn(async () => {
+        throw new Error('db went away');
+      }),
+    });
+
+    await expect(discoverTopic(makePayload(), makeCtx(), deps)).resolves.toBeUndefined();
+    expect(calls.published.map((p) => p.event_type)).toEqual(['topic.created', 'edge.observed']);
+    expect(consoleSpy).toHaveBeenCalled();
+    consoleSpy.mockRestore();
   });
 });
 
