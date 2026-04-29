@@ -1,5 +1,3 @@
-import Link from 'next/link';
-import { AgentActivity } from '@/components/scoreboard/agent-activity';
 import { AutoRefresh } from '@/components/scoreboard/auto-refresh';
 import { CharacterFilter } from '@/components/scoreboard/character-filter';
 import { ReviewerControl } from '@/components/scoreboard/reviewer-control';
@@ -66,39 +64,10 @@ export default async function ScoreboardPage({
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-10">
       <AutoRefresh intervalMs={5000} />
-      <header className="flex flex-col gap-3">
-        <div className="flex flex-wrap gap-2 text-sm">
-          <Link
-            href="/admin/reviews"
-            className="text-muted-foreground hover:text-foreground rounded-full px-3 py-1 ring-1 ring-black/10"
-          >
-            {language === 'de' ? 'Review-Queue' : 'review queue'}
-          </Link>
-          <Link
-            href="/admin/guardrails"
-            className="text-muted-foreground hover:text-foreground rounded-full px-3 py-1 ring-1 ring-black/10"
-          >
-            {language === 'de' ? 'Guardrail-Demo' : 'guardrail demo'}
-          </Link>
-          <Link
-            href="/playbook"
-            className="text-muted-foreground hover:text-foreground rounded-full px-3 py-1 ring-1 ring-black/10"
-          >
-            playbook
-          </Link>
-          <Link
-            href="/cost-monitoring"
-            className="text-muted-foreground hover:text-foreground rounded-full px-3 py-1 ring-1 ring-black/10"
-          >
-            cost monitoring
-          </Link>
-        </div>
-      </header>
 
       <CharacterFilter counts={counts} language={language} />
 
       <ReviewerControl />
-      <AgentActivity />
 
       <section className="flex flex-col gap-3">
         {visible.length === 0 ? (

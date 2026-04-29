@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
 import './globals.css';
+import { ActivityRail } from '@/components/scoreboard/activity-rail';
 import { LanguagePicker } from '@/components/scoreboard/language-picker';
 import { ThemeProvider } from '@/components/theme-provider';
 import { getPreferredLanguage } from '@/lib/language-server';
@@ -44,7 +45,7 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <header className="border-border/60 bg-background/80 sticky top-0 z-10 border-b backdrop-blur">
-            <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-6 py-3">
+            <div className="mx-auto flex w-full max-w-[90rem] items-center gap-3 px-6 py-3">
               <Link
                 href="/"
                 className="hover:text-foreground focus-visible:outline-ring/60 inline-flex items-center gap-3 rounded-md text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
@@ -60,7 +61,12 @@ export default async function RootLayout({
               </div>
             </div>
           </header>
-          <main className="flex-1">{children}</main>
+          <main className="flex-1">
+            <div className="grid w-full [grid-template-areas:'rail''content'] xl:mx-auto xl:max-w-[1616px] xl:grid-cols-[17rem_minmax(0,1fr)_17rem] xl:gap-6 xl:px-6 xl:[grid-template-areas:'phantom_content_rail']">
+              <div className="min-w-0 [grid-area:content]">{children}</div>
+              <ActivityRail />
+            </div>
+          </main>
           <Toaster theme="light" />
         </ThemeProvider>
       </body>

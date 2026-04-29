@@ -5,59 +5,98 @@ import type { AgentEvent } from '@repo/agent';
 import type { AgentActivityEnvelope } from '@repo/agent/shared';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 interface DisplayEntry extends AgentActivityEnvelope {
   id: string;
 }
 
-const MAX_ENTRIES = 60;
-
-function shortInput(input: unknown): string {
-  if (input === null || input === undefined) return '';
-  try {
-    const s = JSON.stringify(input);
-    return s.length > 80 ? `${s.slice(0, 77)}…` : s;
-  } catch {
-    return '';
-  }
+interface AgentActivityProps {
+  className?: string;
+  listClassName?: string;
 }
+
+const MAX_ENTRIES = 80;
 
 function fmtTime(iso: string): string {
   return new Date(iso).toISOString().slice(11, 19);
 }
 
-function describe(event: AgentEvent): {
+function fmtArgs(input: unknown): string {
+  if (input === null || input === undefined) return '';
+  if (typeof input !== 'object') return String(input);
+  const entries = Object.entries(input as Record<string, unknown>);
+  if (entries.length === 0) return '';
+  return entries
+    .map(([k, v]) => {
+      if (typeof v === 'string') {
+        const trimmed = v.length > 32 ? `${v.slice(0, 29)}…` : v;
+        return `${k}="${trimmed}"`;
+      }
+      if (typeof v === 'number' || typeof v === 'boolean') return `${k}=${String(v)}`;
+      if (Array.isArray(v)) return `${k}=[${v.length}]`;
+      if (v && typeof v === 'object') return `${k}={…}`;
+      return `${k}=${String(v)}`;
+    })
+    .join(', ');
+}
+
+type Tone = 'muted' | 'info' | 'ok' | 'warn';
+
+interface Rendered {
+  kind: 'tool' | 'thinking' | 'final' | 'error' | 'tool_failed';
   label: string;
-  tone: 'muted' | 'info' | 'ok' | 'warn';
   detail: string;
-} {
+  tone: Tone;
+}
+
+function describe(event: AgentEvent): Rendered | null {
   switch (event.type) {
-    case 'turn_start':
-      return { label: `turn ${event.turn}`, tone: 'info', detail: '' };
     case 'tool_call':
-      return { label: `→ ${event.name}`, tone: 'info', detail: shortInput(event.input) };
-    case 'tool_result':
       return {
+        kind: 'tool',
+        label: `→ ${event.name}`,
+        detail: fmtArgs(event.input),
+        tone: 'info',
+      };
+    case 'tool_result':
+      if (event.ok) return null;
+      return {
+        kind: 'tool_failed',
         label: `← ${event.name}`,
-        tone: event.ok ? 'ok' : 'warn',
-        detail: `${event.bytes.toLocaleString()} bytes`,
+        detail: 'failed',
+        tone: 'warn',
       };
     case 'assistant_text': {
-      const trimmed = event.text.length > 240 ? `${event.text.slice(0, 237)}…` : event.text;
-      return { label: 'thinking', tone: 'muted', detail: trimmed };
+      const text = event.text.trim();
+      if (text.length === 0) return null;
+      return { kind: 'thinking', label: 'thinking', detail: text, tone: 'muted' };
     }
     case 'final':
       return {
-        label: event.fallback_reason ? `final · ${event.fallback_reason}` : 'final',
-        tone: event.fallback_reason ? 'warn' : 'ok',
+        kind: 'final',
+        label: event.fallback_reason ? `done · ${event.fallback_reason}` : 'done',
         detail: '',
+        tone: event.fallback_reason ? 'warn' : 'ok',
       };
     case 'error':
-      return { label: 'error', tone: 'warn', detail: event.message };
+      return { kind: 'error', label: 'error', detail: event.message, tone: 'warn' };
+    case 'turn_start':
+      return null;
   }
 }
 
-export function AgentActivity(): React.ReactElement {
+const toneClasses: Record<Tone, string> = {
+  ok: 'text-emerald-700 dark:text-emerald-400',
+  warn: 'text-destructive',
+  info: 'text-foreground',
+  muted: 'text-muted-foreground',
+};
+
+export function AgentActivity({
+  className,
+  listClassName,
+}: AgentActivityProps): React.ReactElement {
   const [entries, setEntries] = useState<DisplayEntry[]>([]);
   const [connected, setConnected] = useState(false);
   const counter = useRef(0);
@@ -69,6 +108,7 @@ export function AgentActivity(): React.ReactElement {
     const onActivity = (e: MessageEvent<string>): void => {
       try {
         const env = JSON.parse(e.data) as AgentActivityEnvelope;
+        if (describe(env.event) === null) return;
         counter.current += 1;
         const id = `${env.emitted_at}-${counter.current}`;
         setEntries((prev) => {
@@ -94,7 +134,7 @@ export function AgentActivity(): React.ReactElement {
   }, []);
 
   return (
-    <Card>
+    <Card className={className}>
       <CardContent className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -111,33 +151,39 @@ export function AgentActivity(): React.ReactElement {
         {entries.length === 0 ? (
           <p className="text-muted-foreground text-xs">
             Waiting for an agent run. Trigger a topic update, approve a plan, or hit Reset to see
-            live turns and tool calls.
+            tool calls and reasoning.
           </p>
         ) : (
-          <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto font-mono text-xs">
+          <ul
+            className={cn(
+              'flex flex-col gap-3 overflow-y-auto font-mono text-xs',
+              listClassName ?? 'max-h-[28rem]',
+            )}
+          >
             {entries.map((entry) => {
-              const d = describe(entry.event);
-              const toneClass =
-                d.tone === 'ok'
-                  ? 'text-emerald-700 dark:text-emerald-400'
-                  : d.tone === 'warn'
-                    ? 'text-destructive'
-                    : d.tone === 'info'
-                      ? 'text-foreground'
-                      : 'text-muted-foreground';
+              const r = describe(entry.event);
+              if (!r) return null;
+              const tone = toneClasses[r.tone];
               return (
-                <li key={entry.id} className="flex items-baseline gap-2">
-                  <span className="text-muted-foreground shrink-0 tabular-nums">
-                    {fmtTime(entry.emitted_at)}
-                  </span>
-                  <span className="text-muted-foreground max-w-[8rem] shrink-0 truncate">
-                    {entry.topic_id}
-                  </span>
-                  <span className="text-muted-foreground shrink-0 uppercase">{entry.agent}</span>
-                  <span className={`shrink-0 font-medium ${toneClass}`}>{d.label}</span>
-                  {d.detail ? (
-                    <span className="text-muted-foreground truncate">{d.detail}</span>
-                  ) : null}
+                <li key={entry.id} className="flex flex-col gap-0.5">
+                  <div className="text-muted-foreground flex items-baseline gap-2 text-[10.5px]">
+                    <span className="tabular-nums">{fmtTime(entry.emitted_at)}</span>
+                    <span className="tracking-wide uppercase">{entry.agent}</span>
+                    <span className="truncate">{entry.topic_id}</span>
+                  </div>
+                  <div className="pl-1">
+                    <span className={cn('font-medium', tone)}>{r.label}</span>
+                    {r.detail ? (
+                      <span
+                        className={cn(
+                          'text-foreground/80 ml-2 break-words whitespace-pre-wrap',
+                          r.kind === 'thinking' && 'text-muted-foreground italic',
+                        )}
+                      >
+                        {r.detail}
+                      </span>
+                    ) : null}
+                  </div>
                 </li>
               );
             })}
