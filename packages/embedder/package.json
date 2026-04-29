@@ -15,6 +15,7 @@
     "build": "echo 'no build'"
   },
   "dependencies": {
+    "@repo/db": "workspace:*",
     "@repo/messaging": "workspace:*",
     "openai": "^4.79.0"
   },

@@ -43,7 +43,10 @@ export async function provisionConsumer(opts: ConsumerOptions): Promise<void> {
   try {
     await jsm.consumers.add(STREAM_NAME, config);
   } catch (err) {
-    if (!isAlreadyExists(err)) throw err;
+    // Update on conflict so filter_subject changes propagate without manual
+    // consumer deletion. Mirrors how provisionStream already updates on conflict.
+    if (isAlreadyExists(err)) await jsm.consumers.update(STREAM_NAME, opts.durable_name, config);
+    else throw err;
   }
 }
 

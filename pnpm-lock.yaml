@@ -320,6 +320,9 @@ importers:
 
   packages/embedder:
     dependencies:
+      '@repo/db':
+        specifier: workspace:*
+        version: link:../db
       '@repo/messaging':
         specifier: workspace:*
         version: link:../messaging
