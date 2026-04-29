@@ -94,7 +94,7 @@ case "$MODE" in
   full)
     export PORT=3002
     export NEXT_DIST_DIR=.next-full
-    export BACKEND_WORKERS=connectors,embedder,mention-extractor,topic-discovery,reviewer
+    export BACKEND_WORKERS=connectors,embedder,mention-extractor,topic-discovery,reviewer,executor
     exec pnpm -r --parallel --filter "./apps/web" --filter "./apps/backend" dev
     ;;
 esac
