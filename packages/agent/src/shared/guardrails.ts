@@ -97,6 +97,15 @@ const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 const PHONE_PATTERN = /(?:\+?\d[\d\s()./-]{7,}\d)/;
 const PHONE_PATTERN_GLOBAL = /(?:\+?\d[\d\s()./-]{7,}\d)/g;
 const SLACK_TS_LIKE_ID = /^\d{9,13}\.\d{6}$/;
+// German thousands grouping: "1.234.567", "60.000".
+const FORMATTED_NUMBER_GROUP = /^\d{1,3}(?:\.\d{3})+$/;
+// Range/list of formatted numbers separated by hyphen or slash:
+// "12.000-15.000", "12.000 - 15.000", "12.000/15.000".
+const FORMATTED_NUMBER_RANGE = /^\d{1,3}(?:\.\d{3})+\s*[-/]\s*\d{1,3}(?:\.\d{3})+$/;
+// Year-only range: "2020-2024", "2020/2024".
+const YEAR_RANGE = /^\d{4}\s*[-/]\s*\d{4}$/;
+// Dotted version number with three or more groups: "1.2.3", "1.2.3.4.5".
+const VERSION_LIKE = /^\d{1,3}(?:\.\d{1,3}){2,}$/;
 const URGENCY_TERMS = [
   'dringend',
   'kritisch',
@@ -150,12 +159,23 @@ function urgencyCount(text: string): number {
   );
 }
 
+// Strukturierte, nicht-PII-artige Zahlenformen, die das breite PHONE_PATTERN
+// einsammelt: Slack-Record-IDs, deutsche Tausendertrennung (Millionenangaben
+// und Wertebereiche), Jahresspannen, Versionsnummern.
+function looksLikeStructuredNumber(candidate: string): boolean {
+  return (
+    SLACK_TS_LIKE_ID.test(candidate) ||
+    FORMATTED_NUMBER_GROUP.test(candidate) ||
+    FORMATTED_NUMBER_RANGE.test(candidate) ||
+    YEAR_RANGE.test(candidate) ||
+    VERSION_LIKE.test(candidate)
+  );
+}
+
 function hasPhoneLikePII(text: string): boolean {
   for (const match of text.matchAll(PHONE_PATTERN_GLOBAL)) {
     const candidate = match[0].trim();
-    // Slack record timestamps look phone-like to the broad regex but are
-    // machine IDs, not user PII.
-    if (SLACK_TS_LIKE_ID.test(candidate)) continue;
+    if (looksLikeStructuredNumber(candidate)) continue;
     return true;
   }
   return false;
