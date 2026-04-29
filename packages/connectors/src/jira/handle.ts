@@ -187,6 +187,15 @@ function emitIssueCascade(issue: JiraIssue, occurredAt: IsoDateTime, emissions: 
   const subjectId = issueId(issue.key);
   const updates = issue.updates ?? [];
 
+  // Comments werden nicht als eigene Records emittiert (Mock liefert nur
+  // authorRole, keine User-ID — keine saubere authored_by-Edge möglich). Damit
+  // der Embedder den Diskussionskontext trotzdem sieht, werden Comment-Bodies
+  // mit Rollen-Prefix an den Issue-Body angehängt.
+  const commentsBody = issue.comments
+    .map((c) => `[${c.authorRole}] ${c.bodyText}`)
+    .filter(Boolean)
+    .join('\n\n');
+
   const buildPayload = (
     state: IssueMutableState,
   ): {
@@ -203,7 +212,7 @@ function emitIssueCascade(issue: JiraIssue, occurredAt: IsoDateTime, emissions: 
     type: 'issue',
     source: SOURCE,
     title: state.summary,
-    body: state.descriptionText,
+    body: commentsBody ? `${state.descriptionText}\n\n${commentsBody}` : state.descriptionText,
     payload: {
       key: issue.key,
       project_key: issue.projectKey,

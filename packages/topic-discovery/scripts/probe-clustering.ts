@@ -95,11 +95,13 @@ function extractIntercom(conv: IntercomConv): Variants {
 }
 
 function extractJira(issue: JiraIssue): Variants {
-  // as-pipeline: handle.ts emittet body=descriptionText, title=summary.
-  // Comments werden explizit verworfen (handle.ts:38-40).
-  const asPipeline = `${issue.summary}\n\n${issue.descriptionText}`;
-  const commentBodies = (issue.comments ?? []).map((c) => c.bodyText);
+  // as-pipeline: handle.ts emittet body = descriptionText + comments mit
+  // [authorRole]-Prefix konkateniert, title = summary. Comments werden NICHT
+  // als eigene Records emittiert (kein author_id im Mock).
+  const commentBodies = (issue.comments ?? []).map((c) => `[${c.authorRole}] ${c.bodyText}`);
   const attachmentNames = (issue.attachments ?? []).map((a) => a.filename);
+  const asPipeline = [issue.summary, issue.descriptionText, ...commentBodies].join('\n\n');
+  // raw zusätzlich mit Attachment-Filenames — die landen aktuell nicht im Body.
   const raw = [
     issue.summary,
     issue.descriptionText,
@@ -118,11 +120,11 @@ function extractSlack(msg: SlackMsg): Variants {
 }
 
 function extractUpvoty(post: UpvotyPost): Variants {
-  // as-pipeline: handle.ts emittet title + body. Comments sind eigene Records,
-  // werden aber im post-Record nicht mit-embedded.
-  const asPipeline = [post.title, post.body ?? ''].filter(Boolean).join('\n\n');
+  // as-pipeline: handle.ts emittet title + body, wobei body = post.body +
+  // comments-bodies konkateniert. Comments bleiben zusätzlich eigene Records.
   const commentBodies = (post.comments ?? []).map((c) => c.body);
-  const raw = [post.title, post.body ?? '', ...commentBodies].filter(Boolean).join('\n\n');
+  const asPipeline = [post.title, post.body ?? '', ...commentBodies].filter(Boolean).join('\n\n');
+  const raw = asPipeline;
   return { asPipeline, raw };
 }
 

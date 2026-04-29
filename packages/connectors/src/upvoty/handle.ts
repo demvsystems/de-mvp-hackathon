@@ -110,6 +110,15 @@ function emitPostCascade(p: UpvotyPost, emissions: Emission[]): void {
   const boardSubjectId = boardId(p.board_id);
   const updates = p.updates ?? [];
 
+  // Comments werden zusätzlich als eigene Records emittiert (siehe
+  // emitCommentCascade unten). Für den Post als Cluster-Anker werden die
+  // Comment-Bodies aber zusätzlich an den Post-Body angehängt — analog zur
+  // Slack-Thread- bzw. Intercom-Parts-Anreicherung.
+  const commentsBody = p.comments
+    .map((c) => c.body)
+    .filter(Boolean)
+    .join('\n\n');
+
   const stateAt = (untilIdx: number): PostStateSlice => {
     let state: PostStateSlice = { status: p.status, title: p.title, body: p.body };
     for (let j = updates.length - 1; j > untilIdx; j--) {
@@ -141,7 +150,8 @@ function emitPostCascade(p: UpvotyPost, emissions: Emission[]): void {
     type: 'post',
     source: SOURCE,
     title: s.title,
-    body: s.body,
+    body:
+      commentsBody && s.body ? `${s.body}\n\n${commentsBody}` : (s.body ?? (commentsBody || null)),
     payload: {
       upvoty_id: p.id,
       status: s.status,
