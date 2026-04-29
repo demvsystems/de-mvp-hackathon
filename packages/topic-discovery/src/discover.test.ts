@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { EmbeddingCreatedPayload, MessageContext } from '@repo/messaging';
 import { discoverTopic, type DiscoveryDeps, type NearestTopicState } from './discover';
-import { DISTANCE_THRESHOLD_BODY_ONLY, TOPIC_DISCOVERY_SOURCE_BODY_ONLY } from './cluster';
+import { DISTANCE_THRESHOLD, TOPIC_DISCOVERY_SOURCE } from './cluster';
 
 const TRIGGER_EVENT_ID = 'evt_emb_a1b2c3';
 
@@ -55,6 +55,7 @@ function makeDeps(overrides: Partial<DiscoveryDeps> = {}): {
   deps: DiscoveryDeps;
   calls: {
     findNearestActiveTopic: ReturnType<typeof vi.fn>;
+    isAlreadyMember: ReturnType<typeof vi.fn>;
     publishWithPersist: ReturnType<typeof vi.fn>;
     published: PublishCall[];
   };
@@ -62,6 +63,7 @@ function makeDeps(overrides: Partial<DiscoveryDeps> = {}): {
   const published: PublishCall[] = [];
   const calls = {
     findNearestActiveTopic: vi.fn(async (): Promise<NearestTopicState | null> => null),
+    isAlreadyMember: vi.fn(async (): Promise<boolean> => false),
     publishWithPersist: vi.fn(async (event: { event_type: string }, input: unknown) => {
       published.push({ event_type: event.event_type, input: input as PublishCall['input'] });
       return { event_id: 'evt_fake', seq: 1, stream: 'EVENTS', duplicate: false };
@@ -71,6 +73,7 @@ function makeDeps(overrides: Partial<DiscoveryDeps> = {}): {
 
   const deps: DiscoveryDeps = {
     findNearestActiveTopic: overrides.findNearestActiveTopic ?? calls.findNearestActiveTopic,
+    isAlreadyMember: overrides.isAlreadyMember ?? calls.isAlreadyMember,
     publishWithPersist: (overrides.publishWithPersist ??
       calls.publishWithPersist) as DiscoveryDeps['publishWithPersist'],
   };
@@ -101,19 +104,19 @@ describe('discoverTopic — no nearest topic', () => {
 
     const [topicEvt, edgeEvt] = calls.published;
     expect(topicEvt?.event_type).toBe('topic.created');
-    expect(topicEvt?.input.source).toBe(TOPIC_DISCOVERY_SOURCE_BODY_ONLY);
+    expect(topicEvt?.input.source).toBe(TOPIC_DISCOVERY_SOURCE);
     expect(topicEvt?.input.causation_id).toBe(TRIGGER_EVENT_ID);
 
     const topicPayload = topicEvt?.input.payload as {
       id: string;
       status: string;
-      centroid_body_only: number[];
-      member_count_body_only: number;
+      centroid: number[];
+      member_count: number;
     };
     expect(topicPayload.id).toMatch(/^topic:[0-9a-f-]+$/);
     expect(topicPayload.status).toBe('active');
-    expect(topicPayload.centroid_body_only).toEqual(payload.vector);
-    expect(topicPayload.member_count_body_only).toBe(1);
+    expect(topicPayload.centroid).toEqual(payload.vector);
+    expect(topicPayload.member_count).toBe(1);
 
     expect(edgeEvt?.event_type).toBe('edge.observed');
     const edgePayload = edgeEvt?.input.payload as {
@@ -139,7 +142,7 @@ describe('discoverTopic — nearest beyond threshold', () => {
       findNearestActiveTopic: vi.fn(
         async (): Promise<NearestTopicState | null> => ({
           id: 'topic:far-away',
-          distance: DISTANCE_THRESHOLD_BODY_ONLY + 0.05,
+          distance: DISTANCE_THRESHOLD + 0.05,
           centroid: [0.9, 0.9, 0.9],
           memberCount: 5,
         }),
@@ -158,7 +161,7 @@ describe('discoverTopic — nearest beyond threshold', () => {
 describe('discoverTopic — nearest within threshold', () => {
   it('publishes topic.updated with incrementally recomputed centroid + member_count, plus discusses edge', async () => {
     const distance = 0.15;
-    const expectedConfidence = 1 - distance / DISTANCE_THRESHOLD_BODY_ONLY;
+    const expectedConfidence = 1 - distance / DISTANCE_THRESHOLD;
     const existingCentroid = [0.0, 0.0, 0.0];
     const existingMemberCount = 1;
 
@@ -182,17 +185,17 @@ describe('discoverTopic — nearest within threshold', () => {
     expect(updateEvt?.event_type).toBe('topic.updated');
     const updatePayload = updateEvt?.input.payload as {
       id: string;
-      centroid_body_only: number[];
-      member_count_body_only: number;
+      centroid: number[];
+      member_count: number;
       label: string | null;
       description: string | null;
     };
     expect(updatePayload.id).toBe('topic:7c8d9e1f-2a3b-existing');
     expect(updatePayload.label).toBeNull();
     expect(updatePayload.description).toBeNull();
-    expect(updatePayload.member_count_body_only).toBe(existingMemberCount + 1);
+    expect(updatePayload.member_count).toBe(existingMemberCount + 1);
     // (existing*1 + new) / 2 == new/2
-    expect(updatePayload.centroid_body_only).toEqual(payload.vector.map((v) => v / 2));
+    expect(updatePayload.centroid).toEqual(payload.vector.map((v) => v / 2));
     expect(updateEvt?.input.causation_id).toBe(TRIGGER_EVENT_ID);
 
     expect(edgeEvt?.event_type).toBe('edge.observed');
@@ -212,7 +215,7 @@ describe('discoverTopic — nearest within threshold', () => {
       findNearestActiveTopic: vi.fn(
         async (): Promise<NearestTopicState | null> => ({
           id: 'topic:edge',
-          distance: DISTANCE_THRESHOLD_BODY_ONLY,
+          distance: DISTANCE_THRESHOLD,
           centroid: [0, 0, 0],
           memberCount: 3,
         }),
@@ -225,6 +228,32 @@ describe('discoverTopic — nearest within threshold', () => {
     expect(events).toEqual(['topic.updated', 'edge.observed']);
     const edgePayload = calls.published[1]?.input.payload as { confidence: number };
     expect(edgePayload.confidence).toBe(0);
+  });
+});
+
+describe('discoverTopic — re-embed idempotency', () => {
+  it('skips publish entirely when the record is already a member of the nearest topic', async () => {
+    const isAlreadyMember = vi.fn(async () => true);
+    const { deps, calls } = makeDeps({
+      findNearestActiveTopic: vi.fn(
+        async (): Promise<NearestTopicState | null> => ({
+          id: 'topic:already-member',
+          distance: 0.05,
+          centroid: [0.1, -0.2, 0.3],
+          memberCount: 4,
+        }),
+      ),
+      isAlreadyMember,
+    });
+
+    await discoverTopic(makePayload(), makeCtx(), deps);
+
+    expect(isAlreadyMember).toHaveBeenCalledTimes(1);
+    expect(isAlreadyMember).toHaveBeenCalledWith(
+      'slack:msg:T01ABC/C02DEF/1714028591.012345',
+      'topic:already-member',
+    );
+    expect(calls.published).toHaveLength(0);
   });
 });
 

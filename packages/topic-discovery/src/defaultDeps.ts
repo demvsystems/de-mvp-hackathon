@@ -1,5 +1,6 @@
 import { sql } from '@repo/db';
 import { publishWithPersist } from '@repo/materializer';
+import { TOPIC_DISCOVERY_SOURCE } from './cluster';
 import type { DiscoveryDeps } from './discover';
 
 function parsePgVector(raw: unknown): number[] {
@@ -19,13 +20,13 @@ export const defaultDeps: DiscoveryDeps = {
       { id: string; distance: number; centroid: unknown; member_count: number }[]
     >`
       SELECT id,
-             centroid_body_only <=> ${vectorLit}::vector AS distance,
-             centroid_body_only AS centroid,
-             member_count_body_only AS member_count
+             centroid <=> ${vectorLit}::vector AS distance,
+             centroid,
+             member_count
         FROM topics
        WHERE status = 'active'
-         AND centroid_body_only IS NOT NULL
-       ORDER BY centroid_body_only <=> ${vectorLit}::vector
+         AND centroid IS NOT NULL
+       ORDER BY centroid <=> ${vectorLit}::vector
        LIMIT 1
     `;
     const row = rows[0];
@@ -36,6 +37,20 @@ export const defaultDeps: DiscoveryDeps = {
       centroid: parsePgVector(row.centroid),
       memberCount: Number(row.member_count),
     };
+  },
+
+  async isAlreadyMember(recordId, topicId) {
+    const rows = await sql<{ exists: boolean }[]>`
+      SELECT 1 AS exists
+        FROM edges
+       WHERE from_id = ${recordId}
+         AND to_id   = ${topicId}
+         AND type    = 'discusses'
+         AND source  = ${TOPIC_DISCOVERY_SOURCE}
+         AND valid_to IS NULL
+       LIMIT 1
+    `;
+    return rows.length > 0;
   },
 
   publishWithPersist,

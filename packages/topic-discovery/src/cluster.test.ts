@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DISTANCE_THRESHOLD_BODY_ONLY,
-  STRATEGY_BODY_ONLY,
+  DISTANCE_THRESHOLD,
+  STRATEGY_WITH_NEIGHBORS,
   confidenceFromDistance,
   parseStrategy,
   vectorLiteral,
@@ -18,13 +18,13 @@ describe('parseStrategy', () => {
     expect(parseStrategy('')).toBe('');
   });
 
-  it('STRATEGY_BODY_ONLY matches what parseStrategy yields for the embedder default', () => {
-    expect(parseStrategy('openai-small-3:with-neighbors:v1')).toBe(STRATEGY_BODY_ONLY);
+  it('STRATEGY_WITH_NEIGHBORS matches what parseStrategy yields for the embedder default', () => {
+    expect(parseStrategy('openai-small-3:with-neighbors:v1')).toBe(STRATEGY_WITH_NEIGHBORS);
   });
 });
 
 describe('confidenceFromDistance', () => {
-  const t = DISTANCE_THRESHOLD_BODY_ONLY;
+  const t = DISTANCE_THRESHOLD;
 
   it('returns 1 at distance 0', () => {
     expect(confidenceFromDistance(0, t)).toBe(1);
