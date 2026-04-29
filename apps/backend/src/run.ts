@@ -149,7 +149,7 @@ async function main(): Promise<void> {
   // which pass an explicit worker list via $BACKEND_WORKERS. The CLI
   // `--workers` flag still wins so single-package overrides keep working.
   // Pass `--workers ''` (or `BACKEND_WORKERS=`) to start nothing.
-  const AUTOSTART_EXCLUDE = new Set(['embedder', 'topic-discovery', 'reviewer', 'executor']);
+  const AUTOSTART_EXCLUDE = new Set(['executor']);
   const workersSource =
     values.workers !== undefined ? values.workers : process.env['BACKEND_WORKERS'];
   const autoStart =
