@@ -4,6 +4,8 @@ import { ArrowLeft } from 'lucide-react';
 import { PlaybookEditor } from '@/components/scoreboard/playbook-editor';
 import { getPlaybook } from '@/lib/from-db-playbook';
 
+export const dynamic = 'force-dynamic';
+
 export default async function PlaybookPage() {
   const row = await getPlaybook();
 
