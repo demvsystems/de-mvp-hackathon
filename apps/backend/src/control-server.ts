@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { WorkerRegistry } from './workers';
 
 const ACTIONS = new Set(['start', 'stop', 'reset']);
+const REVIEWER = 'reviewer';
 
 export function startControlServer(registry: WorkerRegistry, port: number): Server {
   const server = createServer((req, res) => {
@@ -32,11 +33,27 @@ async function handle(
   if (
     req.method === 'POST' &&
     parts.length === 2 &&
-    parts[0] === 'reviewer' &&
+    parts[0] === REVIEWER &&
     parts[1] === 'reset-assessments'
   ) {
     try {
       const result = await resetReviewerAssessments();
+      sendJson(res, 200, result);
+    } catch (err) {
+      sendJson(res, 500, { error: err instanceof Error ? err.message : String(err) });
+    }
+    return;
+  }
+
+  if (
+    req.method === 'POST' &&
+    parts.length === 4 &&
+    parts[0] === REVIEWER &&
+    parts[1] === 'topics' &&
+    parts[3] === 'run'
+  ) {
+    try {
+      const result = await triggerReviewerForTopic(registry, decodeURIComponent(parts[2] ?? ''));
       sendJson(res, 200, result);
     } catch (err) {
       sendJson(res, 500, { error: err instanceof Error ? err.message : String(err) });
@@ -80,6 +97,13 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
 interface ResetReviewerResult {
   deleted_assessments: number;
   retriggered_topics: number;
+}
+
+interface TriggerReviewerTopicResult {
+  topic_id: string;
+  started_worker: boolean;
+  worker_state: string;
+  event_id: string;
 }
 
 // Wipe all topic_assessments and re-publish TopicCreated for every active
@@ -126,4 +150,62 @@ async function resetReviewerAssessments(): Promise<ResetReviewerResult> {
   }
 
   return { deleted_assessments: deletedCount, retriggered_topics: retriggered };
+}
+
+async function triggerReviewerForTopic(
+  registry: WorkerRegistry,
+  topicId: string,
+): Promise<TriggerReviewerTopicResult> {
+  if (!topicId) throw new Error('missing topic id');
+
+  const before = registry.list().find((worker) => worker.name === REVIEWER);
+  if (!before) throw new Error(`unknown worker: ${REVIEWER}`);
+
+  let startedWorker = false;
+  let worker = before;
+  if (worker.state !== 'running' && worker.state !== 'starting') {
+    worker = await registry.start(REVIEWER);
+    startedWorker = true;
+  }
+
+  const [{ sql }, { publish, TopicUpdated }] = await Promise.all([
+    import('@repo/db'),
+    import('@repo/messaging'),
+  ]);
+
+  const rows = await sql<
+    { id: string; label: string | null; description: string | null; memberCount: number }[]
+  >`
+    SELECT id,
+           label,
+           description,
+           member_count AS "memberCount"
+      FROM topics
+     WHERE id = ${topicId}
+       AND status = 'active'
+     LIMIT 1
+  `;
+  const topic = rows[0];
+  if (!topic) throw new Error(`active topic not found: ${topicId}`);
+
+  const ack = await publish(TopicUpdated, {
+    source: 'control:reviewer',
+    occurred_at: new Date().toISOString(),
+    subject_id: topic.id,
+    correlation_id: topic.id,
+    payload: {
+      id: topic.id,
+      label: topic.label,
+      description: topic.description,
+      centroid: null,
+      member_count: topic.memberCount,
+    },
+  });
+
+  return {
+    topic_id: topic.id,
+    started_worker: startedWorker,
+    worker_state: worker.state,
+    event_id: ack.event_id,
+  };
 }

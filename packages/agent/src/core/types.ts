@@ -6,6 +6,9 @@ export interface ToolSpec<TInput = unknown, TOutput = unknown> {
   readonly name: string;
   readonly description: string;
   readonly inputSchema: z.ZodType<TInput>;
+  // Terminal tools end the run when their payload also satisfies the agent's
+  // output schema.
+  readonly terminal?: boolean;
   // Method signature (not arrow property) — relies on TypeScript's bivariant
   // method check so heterogeneous ToolSpec[] arrays accept handlers with
   // narrower input types than `unknown`.

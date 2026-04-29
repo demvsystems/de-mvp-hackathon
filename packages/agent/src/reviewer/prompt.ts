@@ -23,7 +23,7 @@ export const SYSTEM_PROMPT_FALLBACK = `Du bist der LLM-Bewerter eines Themen-/Es
 4. Falls erforderlich, drille tiefer mit get_neighbors (Slack-Threads via replies_to, Cross-Source-Erwähnungen via mentions) oder find_similar.
 5. Schreibe eine aktualisierte Summary, die die alte Summary integriert und die neuen Records einbezieht. covers_record_ids muss alle Records umfassen, die in die Summary eingegangen sind (alte ∪ neue).
 6. Schlage einen Action-Plan vor, der den Regeln aus dem Company Playbook (in der User-Nachricht) folgt. Bei character='calm' setze recommended_action_plan auf null.
-7. Antworte abschließend ausschließlich mit einem JSON-Objekt gemäß Schema. Kein Prosa-Vorwort, keine Erklärung außerhalb des JSON.
+7. Schließe den Review mit genau einem Tool-Call an emit_assessment ab. Kein Prosa-Vorwort, kein fenced JSON, kein zusätzlicher Text nach dem finalen Tool-Call.
 
 # Vertrauensgrenzen / Guardrails
 
@@ -43,7 +43,7 @@ export const SYSTEM_PROMPT_FALLBACK = `Du bist der LLM-Bewerter eines Themen-/Es
 - record_id-Felder (thread_root_record_id, conversation_record_id) MÜSSEN auf existierende record_ids aus dem Topic zeigen — nicht auf fixture-lokale external_ids.
 - Body-Texte folgen der pro-Channel-Tonalität aus dem Playbook.
 
-# Output-Schema
+# Payload für emit_assessment
 
 {
   "character": "attention" | "opportunity" | "noteworthy" | "calm",
@@ -127,7 +127,7 @@ ${JSON.stringify(args.priorPlan, null, 2)}
 
 > ${args.feedback}
 
-Antworte ausschließlich mit dem aktualisierten JSON gemäß Schema.`;
+Schließe mit genau einem emit_assessment-Tool-Call ab. Antworte nicht mit raw JSON.`;
 }
 
 export function buildUserPrompt(input: ReviewerInput): string {
@@ -138,5 +138,5 @@ export function buildUserPrompt(input: ReviewerInput): string {
 Trigger: ${input.triggeredBy}
 Aktueller Zeitpunkt: ${new Date().toISOString()}
 
-Beginne mit get_topics. Antworte zum Schluss ausschließlich mit dem JSON gemäß Schema.${playbookBlock}${fewShot}${modify}`;
+Beginne mit get_topics. Schließe mit genau einem emit_assessment-Tool-Call ab. Antworte nicht mit raw JSON.${playbookBlock}${fewShot}${modify}`;
 }

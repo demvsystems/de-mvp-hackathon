@@ -116,6 +116,12 @@ async function resolveSystemPrompt<TInput>(
 }
 
 type ToolDef = Anthropic.Messages.Tool;
+interface ExecutedToolCall {
+  readonly name: string;
+  readonly terminal: boolean;
+  readonly parsedInput: unknown;
+  readonly result: Anthropic.Messages.ToolResultBlockParam;
+}
 
 const toolDefCache = new WeakMap<ReadonlyArray<ToolSpec>, ToolDef[]>();
 function toolsToAnthropic(tools: ReadonlyArray<ToolSpec>): ToolDef[] {
@@ -154,7 +160,7 @@ async function runToolCall(
   resultByteLimit: number,
   parentObservation: LangfuseAgent | LangfuseGeneration | null,
   turn: number,
-): Promise<Anthropic.Messages.ToolResultBlockParam> {
+): Promise<ExecutedToolCall> {
   const tool = findTool(tools, toolUse.name);
   const observation =
     parentObservation?.startObservation(
@@ -178,10 +184,15 @@ async function runToolCall(
     });
     observation?.end();
     return {
-      type: 'tool_result',
-      tool_use_id: toolUse.id,
-      is_error: true,
-      content: JSON.stringify({ error: `Unknown tool: ${toolUse.name}` }),
+      name: toolUse.name,
+      terminal: false,
+      parsedInput: undefined,
+      result: {
+        type: 'tool_result',
+        tool_use_id: toolUse.id,
+        is_error: true,
+        content: JSON.stringify({ error: `Unknown tool: ${toolUse.name}` }),
+      },
     };
   }
 
@@ -197,13 +208,18 @@ async function runToolCall(
     });
     observation?.end();
     return {
-      type: 'tool_result',
-      tool_use_id: toolUse.id,
-      is_error: true,
-      content: JSON.stringify({
-        error: 'Invalid tool input',
-        issues: parsed.error.issues,
-      }),
+      name: toolUse.name,
+      terminal: tool.terminal === true,
+      parsedInput: undefined,
+      result: {
+        type: 'tool_result',
+        tool_use_id: toolUse.id,
+        is_error: true,
+        content: JSON.stringify({
+          error: 'Invalid tool input',
+          issues: parsed.error.issues,
+        }),
+      },
     };
   }
 
@@ -218,9 +234,14 @@ async function runToolCall(
     });
     observation?.end();
     return {
-      type: 'tool_result',
-      tool_use_id: toolUse.id,
-      content,
+      name: toolUse.name,
+      terminal: tool.terminal === true,
+      parsedInput: parsed.data,
+      result: {
+        type: 'tool_result',
+        tool_use_id: toolUse.id,
+        content,
+      },
     };
   } catch (err) {
     observation?.update({
@@ -233,13 +254,18 @@ async function runToolCall(
     });
     observation?.end();
     return {
-      type: 'tool_result',
-      tool_use_id: toolUse.id,
-      is_error: true,
-      content: JSON.stringify({
-        error: 'Tool handler threw',
-        message: err instanceof Error ? err.message : String(err),
-      }),
+      name: toolUse.name,
+      terminal: tool.terminal === true,
+      parsedInput: parsed.data,
+      result: {
+        type: 'tool_result',
+        tool_use_id: toolUse.id,
+        is_error: true,
+        content: JSON.stringify({
+          error: 'Tool handler threw',
+          message: err instanceof Error ? err.message : String(err),
+        }),
+      },
     };
   }
 }
@@ -595,9 +621,9 @@ export async function runAgent<TInput, TOutput>(
           emit({ type: 'tool_call', turn, name: tu.name, input: tu.input });
         }
 
-        const toolResults = await Promise.all(
+        const executedTools = await Promise.all(
           toolUses.map(async (tu) => {
-            const result = await runToolCall(
+            const executed = await runToolCall(
               config.tools,
               tu,
               toolResultByteLimit,
@@ -605,19 +631,53 @@ export async function runAgent<TInput, TOutput>(
               turn,
             );
             const bytes =
-              typeof result.content === 'string'
-                ? result.content.length
-                : JSON.stringify(result.content).length;
+              typeof executed.result.content === 'string'
+                ? executed.result.content.length
+                : JSON.stringify(executed.result.content).length;
             emit({
               type: 'tool_result',
               turn,
               name: tu.name,
-              ok: result.is_error !== true,
+              ok: executed.result.is_error !== true,
               bytes,
             });
-            return result;
+            return executed;
           }),
         );
+        const toolResults = executedTools.map((tool) => tool.result);
+        const terminalTools = executedTools.filter((tool) => tool.terminal);
+
+        if (terminalTools.length > 0) {
+          messages.push({ role: 'assistant', content: response.content });
+          const terminalName = terminalTools[0]?.name ?? 'the terminal tool';
+
+          if (terminalTools.length !== 1 || toolUses.length !== 1) {
+            messages.push({
+              role: 'user',
+              content: `Final turn must call exactly one terminal tool and no other tools. Call ${terminalName} only when you are ready to finish.`,
+            });
+            continue;
+          }
+
+          const terminal = terminalTools[0]!;
+          if (terminal.result.is_error === true || terminal.parsedInput === undefined) {
+            messages.push({ role: 'user', content: toolResults });
+            continue;
+          }
+
+          const validated = config.outputSchema.safeParse(terminal.parsedInput);
+          if (validated.success) {
+            return complete(validated.data, turn, null);
+          }
+
+          messages.push({
+            role: 'user',
+            content: `The payload for ${terminal.name} did not match the required final schema. Issues: ${JSON.stringify(
+              validated.error.issues,
+            )}. Call ${terminal.name} again with a corrected payload.`,
+          });
+          continue;
+        }
 
         messages.push({ role: 'assistant', content: response.content });
         messages.push({ role: 'user', content: toolResults });

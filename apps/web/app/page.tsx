@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { AutoRefresh } from '@/components/scoreboard/auto-refresh';
 import { CharacterFilter } from '@/components/scoreboard/character-filter';
 import { ReviewerActivity } from '@/components/scoreboard/reviewer-activity';
@@ -54,6 +55,26 @@ export default async function ScoreboardPage({
           Aktive Topics aus Slack, Jira, GitHub und Confluence — bewertet vom LLM-Bewerter. Sortiert
           nach Charakter und Eskalations-Score; Drill-down zeigt Belege und Reasoning.
         </p>
+        <div className="flex flex-wrap gap-2 text-sm">
+          <Link
+            href="/admin/reviews"
+            className="text-muted-foreground hover:text-foreground rounded-full px-3 py-1 ring-1 ring-black/10"
+          >
+            review queue
+          </Link>
+          <Link
+            href="/admin/guardrails"
+            className="text-muted-foreground hover:text-foreground rounded-full px-3 py-1 ring-1 ring-black/10"
+          >
+            guardrail demo
+          </Link>
+          <Link
+            href="/playbook"
+            className="text-muted-foreground hover:text-foreground rounded-full px-3 py-1 ring-1 ring-black/10"
+          >
+            playbook
+          </Link>
+        </div>
       </header>
 
       <ReviewerControl />

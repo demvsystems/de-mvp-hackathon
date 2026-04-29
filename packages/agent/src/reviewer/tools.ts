@@ -1,6 +1,7 @@
 import { read } from '@repo/db';
 import type { ToolSpec } from '../core';
 import { annotateEvidenceRecord, annotateEvidenceRecords } from '../shared';
+import { AssessmentOutput } from './output-schema';
 
 async function getGuardedRecords(input: read.GetRecordsInput) {
   const rows = await read.getRecords(input);
@@ -56,4 +57,12 @@ export const reviewerTools: ToolSpec[] = [
     inputSchema: read.FindSimilarInput,
     handler: getGuardedSimilar,
   } satisfies ToolSpec<read.FindSimilarInput, unknown>,
+  {
+    name: 'emit_assessment',
+    description:
+      'Submit the final assessment payload. Call this exactly once when the review is complete. The input must match the full AssessmentOutput schema. Do not call any other tools in the same turn.',
+    inputSchema: AssessmentOutput,
+    terminal: true,
+    handler: async () => ({ ok: true as const }),
+  } satisfies ToolSpec<unknown, { ok: true }>,
 ];

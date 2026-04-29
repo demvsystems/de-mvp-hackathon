@@ -61,23 +61,23 @@ case "$MODE" in
     exec pnpm -r --parallel --filter "./apps/web-playground" --filter "./apps/backend" dev
     ;;
   demo)
-    # Phase 1: hydrate fixtures into `records` via the real pipeline so preseed
-    # can resolve member IDs. Backend exits once the materializer + mention-
-    # extractor consumers have caught up to the last seq the connectors published.
-    BACKEND_WORKERS=connectors,materializer,mention-extractor \
+    # Phase 1: hydrate fixtures via the real pipeline so preseed can resolve
+    # member IDs. Connectors persist records inline; backend exits once the
+    # mention-extractor consumer has caught up to the last publish.
+    BACKEND_WORKERS=connectors,mention-extractor \
       pnpm --filter @repo/backend start -- --hydrate-and-exit
     pnpm db:preseed-topics -- --preserve-assessments
     # Phase 2: long-running demo. No connectors needed — fixtures are already
     # materialized; re-running them would just be no-ops via msgID dedup.
     export PORT=3001
     export NEXT_DIST_DIR=.next-demo
-    export BACKEND_WORKERS=materializer,mention-extractor
+    export BACKEND_WORKERS=mention-extractor
     exec pnpm -r --parallel --filter "./apps/web" --filter "./apps/backend" dev
     ;;
   full)
     export PORT=3002
     export NEXT_DIST_DIR=.next-full
-    export BACKEND_WORKERS=connectors,embedder,materializer,mention-extractor,topic-discovery
+    export BACKEND_WORKERS=connectors,embedder,mention-extractor,topic-discovery
     exec pnpm -r --parallel --filter "./apps/web" --filter "./apps/backend" dev
     ;;
 esac

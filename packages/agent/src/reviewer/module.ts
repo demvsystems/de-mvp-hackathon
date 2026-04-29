@@ -26,6 +26,7 @@ import {
   validateAssessmentOutput,
 } from '../shared';
 import { reviewerAgent } from './agent';
+import { DEFAULT_ACTION_PLAN_FEW_SHOTS } from './few-shot';
 import { ASSESSOR_ID, fallbackAssessment, type ReviewerInput } from './output-schema';
 import { buildModifyContinuationPrompt } from './prompt';
 
@@ -313,7 +314,12 @@ async function reviewAndPublish(
   );
 
   const playbook = await loadPlaybook();
-  const input: ReviewerInput = { topicId, triggeredBy, ...(playbook ? { playbook } : {}) };
+  const input: ReviewerInput = {
+    topicId,
+    triggeredBy,
+    fewShotExamples: DEFAULT_ACTION_PLAN_FEW_SHOTS,
+    ...(playbook ? { playbook } : {}),
+  };
 
   const result = await reviewerAgent(input, undefined, {
     onEvent: buildActivityListener(topicId, triggeredBy),
@@ -404,7 +410,12 @@ async function modifyPlan(
   });
 
   const result = await reviewerAgent(
-    { topicId, triggeredBy: 'modify', playbook },
+    {
+      topicId,
+      triggeredBy: 'modify',
+      playbook,
+      fewShotExamples: DEFAULT_ACTION_PLAN_FEW_SHOTS,
+    },
     {
       priorMessages,
       nextUserMessage: continuation,
