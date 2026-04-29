@@ -1,7 +1,7 @@
+import { publishWithPersist } from '@repo/materializer';
 import {
   EmbeddingCreatedBodyOnly,
   EmbeddingCreatedWithNeighbors,
-  publish,
   type MessageContext,
   type RecordPayload,
 } from '@repo/messaging';
@@ -47,7 +47,7 @@ export async function embedRecordBodyOnly(
   const vector = await embedder.embed(truncated);
   const generatedAt = new Date().toISOString();
 
-  await publish(EmbeddingCreatedBodyOnly, {
+  await publishWithPersist(EmbeddingCreatedBodyOnly, {
     source: 'embedder:v1',
     occurred_at: generatedAt,
     subject_id: `embedding:${payload.id}:0:${modelVersion}`,
@@ -80,7 +80,7 @@ export async function embedRecordWithNeighbors(
   const vector = await embedder.embed(truncated);
   const generatedAt = new Date().toISOString();
 
-  await publish(EmbeddingCreatedWithNeighbors, {
+  await publishWithPersist(EmbeddingCreatedWithNeighbors, {
     source: 'embedder:v1',
     occurred_at: generatedAt,
     subject_id: `embedding:${payload.id}:0:${modelVersion}`,

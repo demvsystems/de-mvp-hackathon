@@ -86,8 +86,9 @@ interface ResetReviewerResult {
 // topic so the reviewer (if running) re-evaluates them. Lazy-imports keep
 // `--workers connectors`-style runs from pulling in DATABASE_URL.
 async function resetReviewerAssessments(): Promise<ResetReviewerResult> {
-  const [{ sql }, { publish, TopicCreated }] = await Promise.all([
+  const [{ sql }, { publishWithPersist }, { TopicCreated }] = await Promise.all([
     import('@repo/db'),
+    import('@repo/materializer'),
     import('@repo/messaging'),
   ]);
 
@@ -103,7 +104,7 @@ async function resetReviewerAssessments(): Promise<ResetReviewerResult> {
     const members = await sql<{ from_id: string }[]>`
       SELECT from_id FROM edges WHERE to_id = ${t.id} AND type = 'discusses'
     `;
-    await publish(TopicCreated, {
+    await publishWithPersist(TopicCreated, {
       source: 'reset:reviewer',
       occurred_at: new Date().toISOString(),
       subject_id: t.id,

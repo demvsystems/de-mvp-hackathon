@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@repo/db": "workspace:*",
+    "@repo/materializer": "workspace:*",
     "@repo/messaging": "workspace:*",
     "openai": "^4.79.0"
   },

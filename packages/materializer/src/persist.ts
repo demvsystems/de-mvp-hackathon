@@ -3,7 +3,6 @@ import type {
   AssessmentCreatedPayload,
   EdgeObservedPayload,
   EmbeddingCreatedPayload,
-  MessageContext,
   RecordIdPayload,
   RecordPayload,
   TopicArchivedPayload,
@@ -12,12 +11,15 @@ import type {
   TopicUpdatedPayload,
 } from '@repo/messaging';
 
-export async function handleRecordObserved(
-  payload: RecordPayload,
-  ctx: MessageContext,
-): Promise<void> {
+export interface PersistCtx {
+  occurredAt: string;
+  observedAt: string;
+  evidence: unknown | null;
+}
+
+export async function persistRecord(payload: RecordPayload, ctx: PersistCtx): Promise<void> {
   if (payload.type === 'user') {
-    // Pilot scope: no users table. Ack and skip.
+    // Pilot scope: no users table. Skip silently.
     return;
   }
 
@@ -27,7 +29,7 @@ export async function handleRecordObserved(
     VALUES (${payload.id}, ${payload.type}, ${payload.source},
             ${payload.title}, ${payload.body}, ${JSON.stringify(payload.payload)}::jsonb,
             ${payload.created_at}, ${payload.updated_at},
-            ${ctx.envelope.observed_at}, false)
+            ${ctx.observedAt}, false)
     ON CONFLICT (id) DO UPDATE
       SET title      = EXCLUDED.title,
           body       = EXCLUDED.body,
@@ -37,39 +39,36 @@ export async function handleRecordObserved(
   `;
 }
 
-export async function handleRecordDeleted(
+export async function persistRecordDeleted(
   payload: RecordIdPayload,
-  ctx: MessageContext,
+  ctx: PersistCtx,
 ): Promise<void> {
   // Soft-delete and edge invalidation must be atomic.
   await sql.begin(async (tx) => {
     await tx`
       UPDATE records
-         SET is_deleted = true, updated_at = ${ctx.envelope.occurred_at}
+         SET is_deleted = true, updated_at = ${ctx.occurredAt}
        WHERE id = ${payload.id}
-         AND updated_at <= ${ctx.envelope.occurred_at}
+         AND updated_at <= ${ctx.occurredAt}
     `;
     await tx`
       UPDATE edges
-         SET valid_to = ${ctx.envelope.occurred_at}
+         SET valid_to = ${ctx.occurredAt}
        WHERE (from_id = ${payload.id} OR to_id = ${payload.id})
          AND valid_to IS NULL
     `;
   });
 }
 
-export async function handleEdgeObserved(
-  payload: EdgeObservedPayload,
-  ctx: MessageContext,
-): Promise<void> {
-  const evidence = ctx.envelope.evidence === null ? null : JSON.stringify(ctx.envelope.evidence);
+export async function persistEdge(payload: EdgeObservedPayload, ctx: PersistCtx): Promise<void> {
+  const evidence = ctx.evidence === null ? null : JSON.stringify(ctx.evidence);
   await sql`
     INSERT INTO edges (from_id, to_id, type, source, confidence, weight,
                        valid_from, valid_to, observed_at, evidence)
     VALUES (${payload.from_id}, ${payload.to_id}, ${payload.type}, ${payload.source},
             ${payload.confidence}, ${payload.weight},
             ${payload.valid_from}, ${payload.valid_to},
-            ${ctx.envelope.observed_at},
+            ${ctx.observedAt},
             ${evidence}::jsonb)
     ON CONFLICT (from_id, to_id, type, source) DO UPDATE
       SET confidence  = EXCLUDED.confidence,
@@ -81,9 +80,9 @@ export async function handleEdgeObserved(
   `;
 }
 
-export async function handleTopicCreated(
+export async function persistTopicCreated(
   payload: TopicCreatedPayload,
-  ctx: MessageContext,
+  ctx: PersistCtx,
 ): Promise<void> {
   const centroidLit =
     payload.centroid_body_only !== null ? `[${payload.centroid_body_only.join(',')}]` : null;
@@ -91,7 +90,7 @@ export async function handleTopicCreated(
     INSERT INTO topics (id, status, discovered_at, discovered_by,
                         centroid_body_only, member_count_body_only, payload)
     VALUES (${payload.id}, 'active',
-            ${ctx.envelope.occurred_at}, ${payload.discovered_by},
+            ${ctx.occurredAt}, ${payload.discovered_by},
             ${centroidLit}::vector,
             ${payload.member_count_body_only ?? 0},
             ${JSON.stringify(payload.initial_centroid_summary)}::jsonb)
@@ -101,7 +100,7 @@ export async function handleTopicCreated(
 
 // COALESCE preserves existing fields when the payload field is null (curator
 // rename/re-describe in Phase 2; centroid maintenance from topic-discovery).
-export async function handleTopicUpdated(payload: TopicUpdatedPayload): Promise<void> {
+export async function persistTopicUpdated(payload: TopicUpdatedPayload): Promise<void> {
   const centroidLit =
     payload.centroid_body_only !== null ? `[${payload.centroid_body_only.join(',')}]` : null;
   await sql`
@@ -114,19 +113,19 @@ export async function handleTopicUpdated(payload: TopicUpdatedPayload): Promise<
   `;
 }
 
-export async function handleTopicArchived(
+export async function persistTopicArchived(
   payload: TopicArchivedPayload,
-  ctx: MessageContext,
+  ctx: PersistCtx,
 ): Promise<void> {
   await sql`
     UPDATE topics
-       SET status = 'archived', archived_at = ${ctx.envelope.occurred_at}
+       SET status = 'archived', archived_at = ${ctx.occurredAt}
      WHERE id = ${payload.id}
        AND status <> 'archived'
   `;
 }
 
-export async function handleTopicSuperseded(payload: TopicSupersededPayload): Promise<void> {
+export async function persistTopicSuperseded(payload: TopicSupersededPayload): Promise<void> {
   await sql`
     UPDATE topics
        SET status = 'superseded', superseded_by = ${payload.superseded_by}
@@ -135,7 +134,7 @@ export async function handleTopicSuperseded(payload: TopicSupersededPayload): Pr
   `;
 }
 
-export async function handleEmbeddingCreated(payload: EmbeddingCreatedPayload): Promise<void> {
+export async function persistEmbedding(payload: EmbeddingCreatedPayload): Promise<void> {
   const vectorLiteral = `[${payload.vector.join(',')}]`;
   await sql`
     INSERT INTO embeddings (record_id, chunk_idx, chunk_text, model_version, vector, generated_at)
@@ -149,7 +148,7 @@ export async function handleEmbeddingCreated(payload: EmbeddingCreatedPayload): 
   `;
 }
 
-export async function handleAssessmentCreated(payload: AssessmentCreatedPayload): Promise<void> {
+export async function persistAssessment(payload: AssessmentCreatedPayload): Promise<void> {
   await sql`
     INSERT INTO topic_assessments
       (topic_id, assessor, assessed_at, character, escalation_score, reasoning, triggered_by)

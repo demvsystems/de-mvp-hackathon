@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { publishWithPersist } from '@repo/materializer';
 import {
   EdgeObserved,
   TopicCreated,
   TopicUpdated,
-  publish,
   type EmbeddingCreatedPayload,
   type MessageContext,
 } from '@repo/messaging';
@@ -25,7 +25,7 @@ export interface NearestTopicState {
 
 export interface DiscoveryDeps {
   findNearestActiveTopic(vectorLit: string): Promise<NearestTopicState | null>;
-  publish: typeof publish;
+  publishWithPersist: typeof publishWithPersist;
 }
 
 function incrementalMean(
@@ -64,7 +64,7 @@ export async function discoverTopic(
     const newCentroid = incrementalMean(nearest.centroid, nearest.memberCount, payload.vector);
     const newMemberCount = nearest.memberCount + 1;
 
-    await deps.publish(TopicUpdated, {
+    await deps.publishWithPersist(TopicUpdated, {
       source: TOPIC_DISCOVERY_SOURCE_BODY_ONLY,
       occurred_at: occurredAt,
       subject_id: topicId,
@@ -82,7 +82,7 @@ export async function discoverTopic(
     topicId = `topic:${randomUUID()}`;
     distance = 0;
 
-    await deps.publish(TopicCreated, {
+    await deps.publishWithPersist(TopicCreated, {
       source: TOPIC_DISCOVERY_SOURCE_BODY_ONLY,
       occurred_at: occurredAt,
       subject_id: topicId,
@@ -106,7 +106,7 @@ export async function discoverTopic(
   const embeddingId = `embedding:${payload.record_id}:${payload.chunk_idx}:${payload.model_version}`;
   const edgeSubjectId = `edge:discusses:${payload.record_id}->${topicId}:${TOPIC_DISCOVERY_SOURCE_BODY_ONLY}`;
 
-  await deps.publish(EdgeObserved, {
+  await deps.publishWithPersist(EdgeObserved, {
     source: TOPIC_DISCOVERY_SOURCE_BODY_ONLY,
     occurred_at: occurredAt,
     subject_id: edgeSubjectId,

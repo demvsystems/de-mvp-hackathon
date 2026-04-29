@@ -1,9 +1,4 @@
-import {
-  publish as basePublish,
-  type EventDefinition,
-  type PublishAck,
-  type PublishInput,
-} from '@repo/messaging';
+import type { EventDefinition, PublishAck, PublishInput } from '@repo/messaging';
 
 export type IsoDateTime = string;
 
@@ -49,7 +44,13 @@ export function emit<T>(event: EventDefinition<T>, input: PublishInput<T>): Emis
     payload: input.payload,
     causation_id: input.causation_id ?? null,
     correlation_id: input.correlation_id ?? null,
-    publish: () => basePublish(event, input),
+    // Lazy-import keeps mapper unit tests DB-free: @repo/materializer pulls in
+    // @repo/db, which throws at module load when DATABASE_URL is unset. The
+    // dynamic import is module-cached, so the cost is only on the first call.
+    publish: async () => {
+      const { publishWithPersist } = await import('@repo/materializer');
+      return publishWithPersist(event, input);
+    },
   };
 }
 

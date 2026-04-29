@@ -1,99 +1,87 @@
 import {
-  EdgeObserved,
-  EmbeddingCreated,
-  RecordDeleted,
-  RecordObserved,
-  RecordTombstoned,
-  RecordUpdated,
-  TopicArchived,
-  TopicAssessmentCreated,
-  TopicCreated,
-  TopicSuperseded,
-  TopicUpdated,
-  type ConsumerOptions,
-  type MessageContext,
-  type Subscriber,
+  publish,
+  type EventDefinition,
+  type PublishAck,
+  type PublishInput,
+  type AssessmentCreatedPayload,
+  type EdgeObservedPayload,
+  type EmbeddingCreatedPayload,
+  type RecordIdPayload,
+  type RecordPayload,
+  type TopicArchivedPayload,
+  type TopicCreatedPayload,
+  type TopicSupersededPayload,
+  type TopicUpdatedPayload,
 } from '@repo/messaging';
 import {
-  handleAssessmentCreated,
-  handleEdgeObserved,
-  handleEmbeddingCreated,
-  handleRecordDeleted,
-  handleRecordObserved,
-  handleTopicArchived,
-  handleTopicCreated,
-  handleTopicSuperseded,
-  handleTopicUpdated,
-} from './handlers';
+  persistAssessment,
+  persistEdge,
+  persistEmbedding,
+  persistRecord,
+  persistRecordDeleted,
+  persistTopicArchived,
+  persistTopicCreated,
+  persistTopicSuperseded,
+  persistTopicUpdated,
+  type PersistCtx,
+} from './persist';
 
-function trace(ctx: MessageContext, kind: string): void {
-  console.log(
-    JSON.stringify({
-      msg: 'matz applied',
-      kind,
-      event_id: ctx.envelope.event_id,
-      subject_id: ctx.envelope.subject_id,
-      seq: ctx.seq,
-    }),
-  );
+export {
+  persistAssessment,
+  persistEdge,
+  persistEmbedding,
+  persistRecord,
+  persistRecordDeleted,
+  persistTopicArchived,
+  persistTopicCreated,
+  persistTopicSuperseded,
+  persistTopicUpdated,
+} from './persist';
+export type { PersistCtx } from './persist';
+
+// Routes an event payload to the matching persist function. Switch on
+// event_type because EventDefinition<T> is generic at compile time but we
+// resolve concrete payload shapes at runtime. system.* events have no DB
+// effect and fall through silently.
+export async function persistEvent<T>(
+  event: EventDefinition<T>,
+  payload: T,
+  ctx: PersistCtx,
+): Promise<void> {
+  switch (event.event_type) {
+    case 'record.observed':
+    case 'record.updated':
+      return persistRecord(payload as RecordPayload, ctx);
+    case 'record.deleted':
+    case 'record.tombstoned':
+      return persistRecordDeleted(payload as RecordIdPayload, ctx);
+    case 'edge.observed':
+      return persistEdge(payload as EdgeObservedPayload, ctx);
+    case 'embedding.created':
+      return persistEmbedding(payload as EmbeddingCreatedPayload);
+    case 'topic.created':
+      return persistTopicCreated(payload as TopicCreatedPayload, ctx);
+    case 'topic.updated':
+      return persistTopicUpdated(payload as TopicUpdatedPayload);
+    case 'topic.archived':
+      return persistTopicArchived(payload as TopicArchivedPayload, ctx);
+    case 'topic.superseded':
+      return persistTopicSuperseded(payload as TopicSupersededPayload);
+    case 'topic.assessment.created':
+      return persistAssessment(payload as AssessmentCreatedPayload);
+    default:
+      return;
+  }
 }
 
-export const materializerModule: {
-  consumer: ConsumerOptions;
-  register: (sub: Subscriber) => void;
-} = {
-  consumer: {
-    durable_name: 'materializer',
-    filter_subject: 'events.>',
-    deliver_policy: 'all',
-  },
-  register(sub) {
-    sub
-      .on(RecordObserved, async (payload, ctx) => {
-        await handleRecordObserved(payload, ctx);
-        trace(ctx, 'record.observed');
-      })
-      .on(RecordUpdated, async (payload, ctx) => {
-        await handleRecordObserved(payload, ctx);
-        trace(ctx, 'record.updated');
-      })
-      .on(RecordDeleted, async (payload, ctx) => {
-        await handleRecordDeleted(payload, ctx);
-        trace(ctx, 'record.deleted');
-      })
-      .on(RecordTombstoned, async (payload, ctx) => {
-        // Tombstone semantics match deletion for the materializer's read-model:
-        // soft-delete the record and invalidate its open edges.
-        await handleRecordDeleted(payload, ctx);
-        trace(ctx, 'record.tombstoned');
-      })
-      .on(EdgeObserved, async (payload, ctx) => {
-        await handleEdgeObserved(payload, ctx);
-        trace(ctx, 'edge.observed');
-      })
-      .on(EmbeddingCreated, async (payload, ctx) => {
-        await handleEmbeddingCreated(payload);
-        trace(ctx, 'embedding.created');
-      })
-      .on(TopicCreated, async (payload, ctx) => {
-        await handleTopicCreated(payload, ctx);
-        trace(ctx, 'topic.created');
-      })
-      .on(TopicUpdated, async (payload, ctx) => {
-        await handleTopicUpdated(payload);
-        trace(ctx, 'topic.updated');
-      })
-      .on(TopicArchived, async (payload, ctx) => {
-        await handleTopicArchived(payload, ctx);
-        trace(ctx, 'topic.archived');
-      })
-      .on(TopicSuperseded, async (payload, ctx) => {
-        await handleTopicSuperseded(payload);
-        trace(ctx, 'topic.superseded');
-      })
-      .on(TopicAssessmentCreated, async (payload, ctx) => {
-        await handleAssessmentCreated(payload);
-        trace(ctx, 'topic.assessment.created');
-      });
-  },
-};
+export async function publishWithPersist<T>(
+  event: EventDefinition<T>,
+  input: PublishInput<T>,
+): Promise<PublishAck> {
+  await persistEvent(event, input.payload, {
+    occurredAt: input.occurred_at,
+    observedAt: new Date().toISOString(),
+    evidence: input.evidence ?? null,
+  });
+  return publish(event, input);
+}

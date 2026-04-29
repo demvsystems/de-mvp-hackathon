@@ -21,6 +21,7 @@
     "pwx:split": "tsx scripts/split-pwx.ts"
   },
   "dependencies": {
+    "@repo/materializer": "workspace:*",
     "@repo/messaging": "workspace:*",
     "zod": "^4.3.6"
   },

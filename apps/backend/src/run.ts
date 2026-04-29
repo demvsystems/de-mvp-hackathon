@@ -15,16 +15,9 @@ const SUBSCRIBER_WORKERS: Record<string, SubscriberWorkerSpec> = {
     load: () => import('@repo/embedder').then((m) => m.embedderModule),
     requiredEnv: ['AZURE_OPENAI_API_KEY'],
   },
-  materializer: {
-    load: () => import('@repo/materializer').then((m) => m.materializerModule),
-  },
   'mention-extractor': {
     load: () => import('@repo/mention-extractor').then((m) => m.mentionExtractorModule),
     requiredEnv: ['DATABASE_URL'],
-  },
-  reviewer: {
-    load: () => import('@repo/agent/reviewer').then((m) => m.agentReviewerModule),
-    requiredEnv: ['AZURE_OPENAI_API_KEY'],
   },
   'topic-discovery': {
     load: () => import('@repo/topic-discovery').then((m) => m.topicDiscoveryModule),

@@ -1,5 +1,5 @@
 import { sql } from '@repo/db';
-import { publish } from '@repo/messaging';
+import { publishWithPersist } from '@repo/materializer';
 import type { DiscoveryDeps } from './discover';
 
 function parsePgVector(raw: unknown): number[] {
@@ -38,5 +38,5 @@ export const defaultDeps: DiscoveryDeps = {
     };
   },
 
-  publish,
+  publishWithPersist,
 };

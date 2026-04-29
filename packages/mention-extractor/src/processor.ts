@@ -1,6 +1,5 @@
 import {
   EdgeObserved,
-  publish as defaultPublish,
   type EdgeObservedPayload,
   type EventDefinition,
   type MessageContext,
@@ -120,11 +119,17 @@ export async function processNewJiraIssue(
   }
 }
 
-/** Default-Publisher: nutzt den echten messaging-Publisher. */
-export const defaultPublishFn: PublishFn = (event, input) =>
-  defaultPublish(
+/**
+ * Default-Publisher: schreibt erst die DB, dann publisht er an NATS. Lazy-
+ * import vermeidet, dass Unit-Tests, die ihren eigenen `publishFn` injizieren,
+ * `@repo/db` (und damit `DATABASE_URL`) brauchen.
+ */
+export const defaultPublishFn: PublishFn = async (event, input) => {
+  const { publishWithPersist } = await import('@repo/materializer');
+  return publishWithPersist(
     event as EventDefinition<unknown>,
     input as PublishInput<unknown>,
   ) as Promise<PublishAck>;
+};
 
 export type _UnusedEdgeObservedPayload = EdgeObservedPayload; // ensure import keeps for type re-export

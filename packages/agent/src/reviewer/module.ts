@@ -1,6 +1,6 @@
 import { sql } from '@repo/db';
+import { publishWithPersist } from '@repo/materializer';
 import {
-  publish,
   TopicAssessmentCreated,
   TopicCreated,
   TopicUpdated,
@@ -53,7 +53,7 @@ async function reviewAndPublish(
   const result = await reviewerAgent({ topicId, triggeredBy });
   const assessedAt = new Date().toISOString();
 
-  const ack = await publish(TopicAssessmentCreated, {
+  const ack = await publishWithPersist(TopicAssessmentCreated, {
     source: ASSESSOR_ID,
     occurred_at: assessedAt,
     subject_id: `assessment:${topicId}:${ASSESSOR_ID}:${assessedAt}`,

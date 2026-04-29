@@ -1,34 +1,22 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { sql } from '@repo/db';
-import type { EventEnvelope, MessageContext } from '@repo/messaging';
-import { handleEdgeObserved, handleRecordDeleted, handleRecordObserved } from '../src/handlers';
+import { persistEdge, persistRecord, persistRecordDeleted, type PersistCtx } from '../src/persist';
 
 const live = process.env['MATERIALIZER_TEST_LIVE'] === '1';
 
-interface EnvelopeOverrides {
-  occurred_at?: string;
-  observed_at?: string;
+interface CtxOverrides {
+  occurredAt?: string;
+  observedAt?: string;
   evidence?: unknown;
 }
 
-function ctx(overrides: EnvelopeOverrides = {}): MessageContext {
-  const t = overrides.occurred_at ?? '2026-04-28T10:00:00.000Z';
-  const envelope: EventEnvelope = {
-    event_id: `evt_${Math.random().toString(36).slice(2, 10)}`,
-    event_type: 'record.observed',
-    schema_version: 1,
-    occurred_at: t,
-    observed_at: overrides.observed_at ?? t,
-    source: 'slack',
-    source_event_id: null,
-    subject_kind: 'record',
-    subject_id: 'rec:test',
-    payload: {},
+function ctx(overrides: CtxOverrides = {}): PersistCtx {
+  const t = overrides.occurredAt ?? '2026-04-28T10:00:00.000Z';
+  return {
+    occurredAt: t,
+    observedAt: overrides.observedAt ?? t,
     evidence: overrides.evidence ?? null,
-    causation_id: null,
-    correlation_id: null,
   };
-  return { envelope, seq: 1, deliveryCount: 1 };
 }
 
 function makeRecord(overrides: { id?: string; body?: string; updated_at?: string } = {}) {
@@ -57,39 +45,39 @@ function makeEdge(overrides: { confidence?: number; weight?: number; valid_from?
   };
 }
 
-describe.skipIf(!live)('materializer handlers', () => {
+describe.skipIf(!live)('persist functions', () => {
   beforeEach(async () => {
     await sql`TRUNCATE TABLE records, edges RESTART IDENTITY`;
   });
 
-  it('record.observed: LWW-Update — späterer updated_at überschreibt Body', async () => {
+  it('persistRecord: LWW-Update — späterer updated_at überschreibt Body', async () => {
     const earlier = makeRecord({ body: 'first', updated_at: '2026-04-28T09:00:00.000Z' });
     const later = makeRecord({ body: 'second', updated_at: '2026-04-28T09:05:00.000Z' });
 
-    await handleRecordObserved(earlier, ctx());
-    await handleRecordObserved(later, ctx({ occurred_at: '2026-04-28T09:05:00.000Z' }));
+    await persistRecord(earlier, ctx());
+    await persistRecord(later, ctx({ occurredAt: '2026-04-28T09:05:00.000Z' }));
 
     const rows = await sql<{ body: string }[]>`SELECT body FROM records WHERE id = ${earlier.id}`;
     expect(rows).toHaveLength(1);
     expect(rows[0]!.body).toBe('second');
 
     // Reverse-Order: älteres Update darf den neueren Stand NICHT überschreiben
-    await handleRecordObserved(earlier, ctx());
+    await persistRecord(earlier, ctx());
     const after = await sql<{ body: string }[]>`SELECT body FROM records WHERE id = ${earlier.id}`;
     expect(after[0]!.body).toBe('second');
   });
 
-  it('record.deleted: setzt is_deleted=true und invalidiert alle inzidenten offenen Edges', async () => {
-    await handleRecordObserved(makeRecord(), ctx());
-    await handleEdgeObserved(makeEdge(), ctx());
+  it('persistRecordDeleted: setzt is_deleted=true und invalidiert alle inzidenten offenen Edges', async () => {
+    await persistRecord(makeRecord(), ctx());
+    await persistEdge(makeEdge(), ctx());
     // Zweite Edge in Gegenrichtung — beide müssen via from_id ODER to_id getroffen werden
-    await handleEdgeObserved(
+    await persistEdge(
       { ...makeEdge(), from_id: 'rec:test:other', to_id: 'rec:test:1', type: 'replies_to' },
       ctx(),
     );
 
     const deletedAt = '2026-04-28T11:00:00.000Z';
-    await handleRecordDeleted({ id: 'rec:test:1' }, ctx({ occurred_at: deletedAt }));
+    await persistRecordDeleted({ id: 'rec:test:1' }, ctx({ occurredAt: deletedAt }));
 
     const records = await sql<
       { is_deleted: boolean }[]
@@ -103,16 +91,16 @@ describe.skipIf(!live)('materializer handlers', () => {
     }
   });
 
-  it('edge.observed: identisches Tupel triggert Upsert mit neueren Werten — kein Constraint-Crash', async () => {
-    await handleEdgeObserved(
+  it('persistEdge: identisches Tupel triggert Upsert mit neueren Werten — kein Constraint-Crash', async () => {
+    await persistEdge(
       makeEdge({ confidence: 0.5, weight: 1.0 }),
-      ctx({ occurred_at: '2026-04-28T09:00:00.000Z' }),
+      ctx({ occurredAt: '2026-04-28T09:00:00.000Z' }),
     );
-    // Zweiter Insert muss strikt späteres observed_at haben — Materializer-LWW
-    // greift nur bei `edges.observed_at <= EXCLUDED.observed_at`.
-    await handleEdgeObserved(
+    // Zweiter Insert muss strikt späteres observedAt haben — LWW greift nur
+    // bei `edges.observed_at <= EXCLUDED.observed_at`.
+    await persistEdge(
       makeEdge({ confidence: 0.9, weight: 2.0 }),
-      ctx({ occurred_at: '2026-04-28T09:10:00.000Z' }),
+      ctx({ occurredAt: '2026-04-28T09:10:00.000Z' }),
     );
 
     const rows = await sql<{ confidence: number; weight: number }[]>`

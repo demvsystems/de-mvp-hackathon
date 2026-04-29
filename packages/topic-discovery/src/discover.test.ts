@@ -55,14 +55,14 @@ function makeDeps(overrides: Partial<DiscoveryDeps> = {}): {
   deps: DiscoveryDeps;
   calls: {
     findNearestActiveTopic: ReturnType<typeof vi.fn>;
-    publish: ReturnType<typeof vi.fn>;
+    publishWithPersist: ReturnType<typeof vi.fn>;
     published: PublishCall[];
   };
 } {
   const published: PublishCall[] = [];
   const calls = {
     findNearestActiveTopic: vi.fn(async (): Promise<NearestTopicState | null> => null),
-    publish: vi.fn(async (event: { event_type: string }, input: unknown) => {
+    publishWithPersist: vi.fn(async (event: { event_type: string }, input: unknown) => {
       published.push({ event_type: event.event_type, input: input as PublishCall['input'] });
       return { event_id: 'evt_fake', seq: 1, stream: 'EVENTS', duplicate: false };
     }),
@@ -71,7 +71,8 @@ function makeDeps(overrides: Partial<DiscoveryDeps> = {}): {
 
   const deps: DiscoveryDeps = {
     findNearestActiveTopic: overrides.findNearestActiveTopic ?? calls.findNearestActiveTopic,
-    publish: (overrides.publish ?? calls.publish) as DiscoveryDeps['publish'],
+    publishWithPersist: (overrides.publishWithPersist ??
+      calls.publishWithPersist) as DiscoveryDeps['publishWithPersist'],
   };
   return { deps, calls };
 }
@@ -85,7 +86,7 @@ describe('discoverTopic — strategy gate', () => {
       deps,
     );
     expect(calls.findNearestActiveTopic).not.toHaveBeenCalled();
-    expect(calls.publish).not.toHaveBeenCalled();
+    expect(calls.publishWithPersist).not.toHaveBeenCalled();
   });
 });
 

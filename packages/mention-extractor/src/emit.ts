@@ -1,6 +1,5 @@
 import {
   EdgeObserved,
-  publish,
   type EdgeObservedPayload,
   type MessageContext,
   type PublishAck,
@@ -74,5 +73,6 @@ export async function emitMentionEdge(
   targetId: string,
   ctx: MessageContext,
 ): Promise<PublishAck> {
-  return publish(EdgeObserved, buildMentionEdge(fromPayload, match, targetId, ctx));
+  const { publishWithPersist } = await import('@repo/materializer');
+  return publishWithPersist(EdgeObserved, buildMentionEdge(fromPayload, match, targetId, ctx));
 }

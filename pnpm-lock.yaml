@@ -257,6 +257,9 @@ importers:
       '@repo/db':
         specifier: workspace:*
         version: link:../db
+      '@repo/materializer':
+        specifier: workspace:*
+        version: link:../materializer
       '@repo/messaging':
         specifier: workspace:*
         version: link:../messaging
@@ -273,6 +276,9 @@ importers:
 
   packages/connectors:
     dependencies:
+      '@repo/materializer':
+        specifier: workspace:*
+        version: link:../materializer
       '@repo/messaging':
         specifier: workspace:*
         version: link:../messaging
@@ -323,6 +329,9 @@ importers:
       '@repo/db':
         specifier: workspace:*
         version: link:../db
+      '@repo/materializer':
+        specifier: workspace:*
+        version: link:../materializer
       '@repo/messaging':
         specifier: workspace:*
         version: link:../messaging
@@ -398,6 +407,9 @@ importers:
       '@repo/db':
         specifier: workspace:*
         version: link:../db
+      '@repo/materializer':
+        specifier: workspace:*
+        version: link:../materializer
       '@repo/messaging':
         specifier: workspace:*
         version: link:../messaging
@@ -439,6 +451,9 @@ importers:
       '@repo/db':
         specifier: workspace:*
         version: link:../db
+      '@repo/materializer':
+        specifier: workspace:*
+        version: link:../materializer
       '@repo/messaging':
         specifier: workspace:*
         version: link:../messaging

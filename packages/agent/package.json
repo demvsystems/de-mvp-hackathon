@@ -22,6 +22,7 @@
     "@langfuse/tracing": "5.2.0",
     "@opentelemetry/sdk-trace-base": "^2.7.0",
     "@repo/db": "workspace:*",
+    "@repo/materializer": "workspace:*",
     "@repo/messaging": "workspace:*",
     "zod": "^4.3.6"
   },

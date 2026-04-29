@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@repo/db": "workspace:*",
+    "@repo/materializer": "workspace:*",
     "@repo/messaging": "workspace:*"
   },
   "devDependencies": {
