@@ -1,4 +1,6 @@
+import { AutoRefresh } from '@/components/scoreboard/auto-refresh';
 import { CharacterFilter } from '@/components/scoreboard/character-filter';
+import { ReviewerControl } from '@/components/scoreboard/reviewer-control';
 import { TopicCard } from '@/components/scoreboard/topic-card';
 import { getScoreboard } from '@/lib/from-db';
 import type { Character } from '@/lib/types';
@@ -43,6 +45,7 @@ export default async function ScoreboardPage({
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-10">
+      <AutoRefresh intervalMs={5000} />
       <header className="flex flex-col gap-3">
         <p className="text-muted-foreground text-xs tracking-widest uppercase">Scoreboard</p>
         <h1 className="font-heading text-3xl font-semibold tracking-tight">Triage</h1>
@@ -51,6 +54,8 @@ export default async function ScoreboardPage({
           nach Charakter und Eskalations-Score; Drill-down zeigt Belege und Reasoning.
         </p>
       </header>
+
+      <ReviewerControl />
 
       <CharacterFilter counts={counts} />
 
