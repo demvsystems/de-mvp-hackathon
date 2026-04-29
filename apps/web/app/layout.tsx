@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
@@ -44,10 +45,15 @@ export default async function RootLayout({
         >
           <header className="border-border/60 bg-background/80 sticky top-0 z-10 border-b backdrop-blur">
             <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-6 py-3">
-              <span className="bg-foreground text-background inline-flex size-6 items-center justify-center rounded-md font-mono text-[11px] font-bold">
-                DC
-              </span>
-              <span className="font-heading text-sm font-medium">DataClaw</span>
+              <Link
+                href="/"
+                className="hover:text-foreground focus-visible:outline-ring/60 inline-flex items-center gap-3 rounded-md text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+              >
+                <span className="bg-foreground text-background inline-flex size-6 items-center justify-center rounded-md font-mono text-[11px] font-bold">
+                  DC
+                </span>
+                <span className="font-heading text-sm font-medium">DataClaw</span>
+              </Link>
               <span className="text-muted-foreground text-xs">/ dashboard</span>
               <div className="ml-auto">
                 <LanguagePicker language={language} />

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyReviewerAssessmentGuardrails,
   annotateEvidenceRecord,
+  reviewerGuardrailsEnabled,
   validateAssessmentOutput,
   type AssessmentLike,
 } from '@repo/agent/shared';
@@ -9,6 +11,21 @@ import { loadFixtures, type Fixture } from '../src';
 
 const REPO_ROOT = resolve(__dirname, '../../..');
 const GOLDEN_DIR = resolve(REPO_ROOT, 'eval/golden');
+
+function buildGuardrailInput(fixture: Fixture) {
+  const guardedRecords = fixture.records.map((record) => annotateEvidenceRecord(record));
+
+  return {
+    allowedRecordIds: guardedRecords.map((record) => record.id),
+    suspiciousRecordIds: guardedRecords
+      .filter((record) => record.guardrail.flags.length > 0)
+      .map((record) => record.id),
+    toolCalls: [
+      { name: 'get_topics', input: {}, turn: 1 },
+      { name: 'get_records', input: {}, turn: 2 },
+    ],
+  } as const;
+}
 
 function compromisedOutput(fixture: Fixture): AssessmentLike {
   const suspicious = fixture.records.map((record) => annotateEvidenceRecord(record));
@@ -72,6 +89,33 @@ function safeOutput(fixture: Fixture): AssessmentLike {
 }
 
 describe('guardrail catch rate over adversarial fixtures', () => {
+  it('keeps reviewer guardrails enabled unless explicitly disabled', () => {
+    expect(reviewerGuardrailsEnabled({})).toBe(true);
+    expect(reviewerGuardrailsEnabled({ LLM_REVIEWER_DISABLE_GUARDRAILS: '0' })).toBe(true);
+    expect(reviewerGuardrailsEnabled({ LLM_REVIEWER_DISABLE_GUARDRAILS: '1' })).toBe(false);
+  });
+
+  it('can bypass reviewer publish-time blocking when the temporary flag is set', async () => {
+    const fixture = (await loadFixtures(GOLDEN_DIR)).find(
+      (candidate) => candidate.category === 'adversarial',
+    );
+    expect(fixture).toBeDefined();
+
+    const input = buildGuardrailInput(fixture!);
+    const output = compromisedOutput(fixture!);
+
+    const enabled = applyReviewerAssessmentGuardrails({ output, ...input }, {});
+    expect(enabled.decision).not.toBe('allow');
+
+    const disabled = applyReviewerAssessmentGuardrails(
+      { output, ...input },
+      { LLM_REVIEWER_DISABLE_GUARDRAILS: '1' },
+    );
+    expect(disabled.decision).toBe('allow');
+    expect(disabled.events).toEqual([]);
+    expect(disabled.sanitized).toEqual(output);
+  });
+
   it('blocks or flags compromised outputs', async () => {
     const fixtures = (await loadFixtures(GOLDEN_DIR)).filter(
       (fixture) => fixture.category === 'adversarial',
@@ -81,31 +125,17 @@ describe('guardrail catch rate over adversarial fixtures', () => {
     let compromisedCaught = 0;
 
     for (const fixture of fixtures) {
-      const guardedRecords = fixture.records.map((record) => annotateEvidenceRecord(record));
-      const allowedRecordIds = guardedRecords.map((record) => record.id);
-      const suspiciousRecordIds = guardedRecords
-        .filter((record) => record.guardrail.flags.length > 0)
-        .map((record) => record.id);
+      const input = buildGuardrailInput(fixture);
 
       const compromised = validateAssessmentOutput({
         output: compromisedOutput(fixture),
-        allowedRecordIds,
-        suspiciousRecordIds,
-        toolCalls: [
-          { name: 'get_topics', input: {}, turn: 1 },
-          { name: 'get_records', input: {}, turn: 2 },
-        ],
+        ...input,
       });
       if (compromised.decision !== 'allow') compromisedCaught++;
 
       const safe = validateAssessmentOutput({
         output: safeOutput(fixture),
-        allowedRecordIds,
-        suspiciousRecordIds,
-        toolCalls: [
-          { name: 'get_topics', input: {}, turn: 1 },
-          { name: 'get_records', input: {}, turn: 2 },
-        ],
+        ...input,
       });
       expect(safe.events.length).toBeGreaterThanOrEqual(0);
     }

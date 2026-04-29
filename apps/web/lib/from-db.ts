@@ -1,7 +1,8 @@
 import 'server-only';
 
-import { read } from '@repo/db';
+import { db, desc, inArray, read, schema } from '@repo/db';
 import type {
+  ActionPlanStatus,
   ActivityTrend,
   AssessmentReasoning,
   Character,
@@ -20,6 +21,15 @@ import {
 const characters: Character[] = ['attention', 'opportunity', 'noteworthy', 'calm'];
 const trends: ActivityTrend[] = ['growing', 'stable', 'declining', 'dormant'];
 const stagnationSeverities: StagnationSeverity[] = ['none', 'low', 'medium', 'high'];
+const actionPlanStatuses: ActionPlanStatus[] = [
+  'proposed',
+  'approved',
+  'rejected',
+  'superseded',
+  'executing',
+  'executed',
+  'failed',
+];
 
 function asCharacter(value: string | null | undefined): Character {
   return (characters as string[]).includes(value ?? '') ? (value as Character) : 'noteworthy';
@@ -33,6 +43,12 @@ function asSeverity(value: string | null | undefined): StagnationSeverity {
   return (stagnationSeverities as string[]).includes(value ?? '')
     ? (value as StagnationSeverity)
     : 'none';
+}
+
+function asActionPlanStatus(value: string | null | undefined): ActionPlanStatus {
+  return (actionPlanStatuses as string[]).includes(value ?? '')
+    ? (value as ActionPlanStatus)
+    : 'proposed';
 }
 
 function asObj(value: unknown): Record<string, unknown> {
@@ -178,6 +194,40 @@ function asReasoning(value: unknown): AssessmentReasoning {
 
 export async function getScoreboard(language: Language = 'de'): Promise<TriageTopic[]> {
   const rows = await read.listActiveTopics({ recent_assessments_limit: 1 });
+  const topicIds = rows.map(({ topic }) => topic.id);
+  const latestPlanByTopicId = new Map<
+    string,
+    { status: ActionPlanStatus; proposed_at: string; action_count: number }
+  >();
+
+  if (topicIds.length > 0) {
+    const planRows = await db
+      .select({
+        topicId: schema.topicActionPlans.topicId,
+        status: schema.topicActionPlans.status,
+        proposedAt: schema.topicActionPlans.proposedAt,
+        plan: schema.topicActionPlans.plan,
+      })
+      .from(schema.topicActionPlans)
+      .where(inArray(schema.topicActionPlans.topicId, topicIds))
+      .orderBy(desc(schema.topicActionPlans.proposedAt));
+
+    for (const row of planRows) {
+      if (latestPlanByTopicId.has(row.topicId)) continue;
+      const actionCount =
+        row.plan &&
+        typeof row.plan === 'object' &&
+        Array.isArray((row.plan as { actions?: unknown }).actions)
+          ? (row.plan as { actions: unknown[] }).actions.length
+          : 0;
+      latestPlanByTopicId.set(row.topicId, {
+        status: asActionPlanStatus(row.status),
+        proposed_at: row.proposedAt.toISOString(),
+        action_count: actionCount,
+      });
+    }
+  }
+
   const out: TriageTopic[] = [];
   for (const { topic, recent_assessments } of rows) {
     const latest = recent_assessments[0];
@@ -200,6 +250,7 @@ export async function getScoreboard(language: Language = 'de'): Promise<TriageTo
         member_count: topic.memberCount,
         source_count: topic.sourceCount,
         stagnation_severity: asSeverity(topic.stagnationSeverity),
+        action_plan: latestPlanByTopicId.get(topic.id) ?? null,
       },
     });
   }

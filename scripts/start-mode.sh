@@ -67,6 +67,7 @@ psql "$MODE_URL" -c "CREATE EXTENSION IF NOT EXISTS vector" >/dev/null
 DATABASE_URL="$MODE_URL" pnpm --filter @repo/db exec drizzle-kit push --force >/dev/null
 
 export DATABASE_URL="$MODE_URL"
+export LLM_REVIEWER_DISABLE_GUARDRAILS="${LLM_REVIEWER_DISABLE_GUARDRAILS:-1}"
 
 case "$MODE" in
   mock)

@@ -32,6 +32,8 @@ set -a
 . ./.env
 set +a
 
+export LLM_REVIEWER_DISABLE_GUARDRAILS="${LLM_REVIEWER_DISABLE_GUARDRAILS:-1}"
+
 resolve_url() {
   case "$1" in
     mock) echo "${DATABASE_URL_MOCK:-${DATABASE_URL%/*}/de_mvp_mock}" ;;

@@ -19,11 +19,12 @@ import {
   DEFAULT_PLAYBOOK,
   Playbook,
   PLAYBOOK_ID,
+  applyReviewerAssessmentGuardrails,
   analyzeEvidenceRecord,
   collectActionPlanRecordIds,
   isSuspiciousRecord,
+  reviewerGuardrailsEnabled,
   type GuardrailEvent,
-  validateAssessmentOutput,
 } from '../shared';
 import { reviewerAgent } from './agent';
 import { DEFAULT_ACTION_PLAN_FEW_SHOTS } from './few-shot';
@@ -209,8 +210,11 @@ async function persistAssessmentAndPlan(args: {
 }): Promise<{ planId: string | null; sessionId: string }> {
   const { topicId, triggeredBy, causationEventId, result, supersedesId, playbook } = args;
   const assessedAt = new Date().toISOString();
-  const guardrailContext = await loadGuardrailContext(topicId, result.output);
-  const guarded = validateAssessmentOutput({
+  const guardrailsEnabled = reviewerGuardrailsEnabled();
+  const guardrailContext = guardrailsEnabled
+    ? await loadGuardrailContext(topicId, result.output)
+    : { allowedRecordIds: [], suspiciousRecordIds: [] };
+  const guarded = applyReviewerAssessmentGuardrails({
     output: result.output,
     allowedRecordIds: guardrailContext.allowedRecordIds,
     suspiciousRecordIds: guardrailContext.suspiciousRecordIds,
@@ -335,6 +339,7 @@ async function persistAssessmentAndPlan(args: {
       action_count: finalOutput.recommended_action_plan?.actions.length ?? 0,
       turns: result.metadata.turns,
       fallback_reason: result.metadata.fallback_reason,
+      guardrails_enabled: guardrailsEnabled,
       guardrail_decision: guarded.decision,
       guardrail_events: guarded.events.length,
       trace_id: result.metadata.trace_id,

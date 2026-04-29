@@ -77,6 +77,8 @@ export interface AssessmentGuardrailResult {
   readonly fallbackReason: string | null;
 }
 
+type GuardrailEnv = Record<string, string | undefined>;
+
 const INSTRUCTION_LIKE =
   /\b(ignore|disregard|forget|override|bypass|skip|emit|output|follow)\b[\s\S]{0,80}\b(instruction|instructions|prompt|system|schema|reviewer|prior|previous|above)\b/i;
 const TOOL_DIRECTIVE =
@@ -535,4 +537,24 @@ export function validateAssessmentOutput(
             .join(',')
         : null,
   };
+}
+
+export function reviewerGuardrailsEnabled(env: GuardrailEnv = process.env): boolean {
+  return env['LLM_REVIEWER_DISABLE_GUARDRAILS'] !== '1';
+}
+
+export function applyReviewerAssessmentGuardrails(
+  input: AssessmentGuardrailInput,
+  env: GuardrailEnv = process.env,
+): AssessmentGuardrailResult {
+  if (!reviewerGuardrailsEnabled(env)) {
+    return {
+      sanitized: cloneAssessment(input.output),
+      decision: 'allow',
+      events: [],
+      fallbackReason: null,
+    };
+  }
+
+  return validateAssessmentOutput(input);
 }

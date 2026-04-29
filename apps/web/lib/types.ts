@@ -30,6 +30,15 @@ export type ActivityTrend = 'growing' | 'stable' | 'declining' | 'dormant';
 
 export type StagnationSeverity = 'none' | 'low' | 'medium' | 'high';
 
+export type ActionPlanStatus =
+  | 'proposed'
+  | 'approved'
+  | 'rejected'
+  | 'superseded'
+  | 'executing'
+  | 'executed'
+  | 'failed';
+
 export type MatchProvenance =
   | { type: 'lexical'; matched_terms: string[]; rank: number }
   | { type: 'semantic'; similarity: number; model_version: string }
@@ -64,6 +73,11 @@ export type TriageTopic = {
     member_count: number;
     source_count: number;
     stagnation_severity: StagnationSeverity;
+    action_plan?: {
+      status: ActionPlanStatus;
+      proposed_at: string;
+      action_count: number;
+    } | null;
   };
 };
 
