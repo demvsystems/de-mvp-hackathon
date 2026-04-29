@@ -33,6 +33,105 @@ interface ResolvedCluster extends ExpectedCluster {
   missing: ExpectedMember[];
 }
 
+interface ActivityStats {
+  first_activity_at: string | null;
+  last_activity_at: string | null;
+  velocity_24h: number;
+  velocity_7d_avg: number;
+  spread_24h: number;
+  unique_authors_7d: number;
+  activity_trend: 'growing' | 'stable' | 'declining' | 'dormant';
+  stagnation_signal_count: number;
+  stagnation_severity: 'none' | 'low' | 'medium' | 'high';
+}
+
+// Author IDs are nested differently per source; pragmatic best-effort that's
+// good enough for the demo's uniqueness count.
+function authorOf(source: string, payload: Record<string, unknown>): string | null {
+  if (source === 'slack' || source === 'upvoty') {
+    return (payload['author_id'] as string | undefined) ?? null;
+  }
+  if (source === 'jira') {
+    return (
+      (payload['reporter'] as string | undefined) ??
+      (payload['assignee'] as string | undefined) ??
+      null
+    );
+  }
+  if (source === 'intercom') {
+    const author = payload['author'] as { id?: string } | undefined;
+    return author?.id ?? null;
+  }
+  return null;
+}
+
+function computeActivity(
+  raw: {
+    id: string;
+    source: string;
+    created_at: Date | string;
+    payload: Record<string, unknown>;
+  }[],
+): ActivityStats {
+  const records = raw.map((r) => ({
+    ...r,
+    created_at: r.created_at instanceof Date ? r.created_at : new Date(r.created_at),
+  }));
+  if (records.length === 0) {
+    return {
+      first_activity_at: null,
+      last_activity_at: null,
+      velocity_24h: 0,
+      velocity_7d_avg: 0,
+      spread_24h: 0,
+      unique_authors_7d: 0,
+      activity_trend: 'dormant',
+      stagnation_signal_count: 0,
+      stagnation_severity: 'none',
+    };
+  }
+  const dates = records.map((r) => r.created_at.getTime());
+  const lastMs = Math.max(...dates);
+  const firstMs = Math.min(...dates);
+  const oneDay = 24 * 60 * 60 * 1000;
+  const sevenDays = 7 * oneDay;
+
+  const within24h = records.filter((r) => lastMs - r.created_at.getTime() <= oneDay);
+  const within7d = records.filter((r) => lastMs - r.created_at.getTime() <= sevenDays);
+
+  const velocity_24h = within24h.length;
+  const velocity_7d_avg = Math.round((within7d.length / 7) * 10) / 10;
+  const spread_24h = new Set(within24h.map((r) => r.source)).size;
+
+  const authors = new Set(
+    within7d.map((r) => authorOf(r.source, r.payload)).filter((a): a is string => Boolean(a)),
+  );
+  const unique_authors_7d =
+    authors.size > 0 ? authors.size : new Set(within7d.map((r) => r.source)).size;
+
+  let activity_trend: ActivityStats['activity_trend'];
+  if (within24h.length > records.length / 2) activity_trend = 'growing';
+  else if (within24h.length > 0) activity_trend = 'stable';
+  else if (within7d.length > 0) activity_trend = 'declining';
+  else activity_trend = 'dormant';
+
+  const stagnation_severity: ActivityStats['stagnation_severity'] =
+    activity_trend === 'dormant' ? 'low' : 'none';
+  const stagnation_signal_count = stagnation_severity === 'none' ? 0 : 1;
+
+  return {
+    first_activity_at: new Date(firstMs).toISOString(),
+    last_activity_at: new Date(lastMs).toISOString(),
+    velocity_24h,
+    velocity_7d_avg,
+    spread_24h,
+    unique_authors_7d,
+    activity_trend,
+    stagnation_signal_count,
+    stagnation_severity,
+  };
+}
+
 async function main(): Promise<void> {
   if (existsSync('.env')) process.loadEnvFile();
 
@@ -92,6 +191,21 @@ async function main(): Promise<void> {
     }
   }
 
+  // Pull each cluster's member records up-front so we can derive plausible
+  // activity stats — there's no online job for velocity/trend yet.
+  const activity = new Map<string, ActivityStats>();
+  for (const c of clusters) {
+    if (c.resolved.length === 0) {
+      activity.set(c.topic_id, computeActivity([]));
+      continue;
+    }
+    const ids = c.resolved.map((r) => r.record_id);
+    const rows = await sql<
+      { id: string; source: string; created_at: string; payload: Record<string, unknown> }[]
+    >`SELECT id, source, created_at, payload FROM records WHERE id = ANY(${ids})`;
+    activity.set(c.topic_id, computeActivity(rows));
+  }
+
   await sql.begin(async (tx) => {
     await tx`DELETE FROM topic_assessments`;
     await tx`DELETE FROM edges WHERE type = 'discusses'`;
@@ -101,16 +215,25 @@ async function main(): Promise<void> {
 
     for (const c of clusters) {
       const sources = new Set(c.resolved.map((r) => r.member.source));
+      const a = activity.get(c.topic_id)!;
       await tx`
         INSERT INTO topics (
           id, status, label, description,
           discovered_at, discovered_by,
-          member_count, source_count,
+          member_count, source_count, unique_authors_7d,
+          first_activity_at, last_activity_at,
+          velocity_24h, velocity_7d_avg, spread_24h,
+          activity_trend, computed_at,
+          stagnation_signal_count, stagnation_severity,
           payload
         ) VALUES (
           ${c.topic_id}, 'active', ${c.label}, ${c.description},
           ${now}, 'preseed:expected-links',
-          ${c.resolved.length}, ${sources.size},
+          ${c.resolved.length}, ${sources.size}, ${a.unique_authors_7d},
+          ${a.first_activity_at}, ${a.last_activity_at},
+          ${a.velocity_24h}, ${a.velocity_7d_avg}, ${a.spread_24h},
+          ${a.activity_trend}, ${now},
+          ${a.stagnation_signal_count}, ${a.stagnation_severity},
           ${JSON.stringify({ evidence_keywords: c.evidence_keywords, expected_cluster_id: c.id })}::jsonb
         )
       `;
