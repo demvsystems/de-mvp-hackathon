@@ -81,15 +81,20 @@ async function main(): Promise<void> {
     allowPositionals: true,
   });
 
-  // Default: everything except embedder (Azure cost), topic-discovery
-  // (replaced by hand-seeded gold-standard topics — see
+  // Bare `pnpm backend` defaults to everything except embedder (Azure cost),
+  // topic-discovery (replaced by hand-seeded gold-standard topics — see
   // scripts/preseed-expected-topics.ts), and reviewer (started manually from
   // the admin dashboard so it's obvious when it's processing / pausable).
-  // Pass `--workers a,b` to override; pass `--workers ''` to start nothing.
+  // The recommended entrypoints are `pnpm dev|start|start:demo|start:full`,
+  // which pass an explicit worker list via $BACKEND_WORKERS. The CLI
+  // `--workers` flag still wins so single-package overrides keep working.
+  // Pass `--workers ''` (or `BACKEND_WORKERS=`) to start nothing.
   const AUTOSTART_EXCLUDE = new Set(['embedder', 'topic-discovery', 'reviewer']);
+  const workersSource =
+    values.workers !== undefined ? values.workers : process.env['BACKEND_WORKERS'];
   const autoStart =
-    values.workers !== undefined
-      ? values.workers
+    workersSource !== undefined
+      ? workersSource
           .split(',')
           .map((w) => w.trim())
           .filter(Boolean)
