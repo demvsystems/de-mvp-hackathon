@@ -110,11 +110,10 @@ function extractJira(issue: JiraIssue): Variants {
 }
 
 function extractSlack(msg: SlackMsg): Variants {
-  // as-pipeline: handle.ts setzt body=msg.text (originalBody), title=null. Der
-  // top-level-Record sieht *nicht* die thread-replies — die sind eigene Records
-  // mit eigenen IDs, die in expected-links nicht referenziert werden.
-  const asPipeline = msg.text ?? '';
-  const raw = flattenSlackThread(msg);
+  // as-pipeline: handle.ts emittet auf Top-Level-Messages body = msg.text +
+  // alle Thread-Replies konkateniert. Replies sind zusätzlich eigene Records.
+  const asPipeline = flattenSlackThread(msg);
+  const raw = asPipeline;
   return { asPipeline, raw };
 }
 

@@ -46,6 +46,21 @@ export function map(item: unknown): ConnectorOutput {
   return { emissions };
 }
 
+/**
+ * Flacht alle Thread-Reply-Texte (rekursiv) zu einer flachen Liste ab. Wird
+ * verwendet, um den Body der Top-Level-Message mit dem Thread-Verlauf
+ * anzureichern. Edits in Replies werden hier nicht berücksichtigt — wir
+ * nehmen den aktuellen `text` jedes Replies als Snapshot-Stand.
+ */
+function flattenThreadTexts(messages: SlackChatMessage[]): string[] {
+  const out: string[] = [];
+  for (const m of messages) {
+    if (m.text) out.push(m.text);
+    if (m.thread) out.push(...flattenThreadTexts(m.thread.messages));
+  }
+  return out;
+}
+
 function earliestMessageDatetime(messages: SlackChatMessage[]): IsoDateTime | null {
   let earliest: string | null = null;
   for (const m of messages) {
@@ -131,12 +146,21 @@ function visitMessage(
   const hasEdits = msg.edits !== undefined && msg.edits.length > 0;
   const originalBody = hasEdits ? msg.edits![0]!.previous_text : msg.text;
 
+  // Top-Level-Messages tragen den ganzen Thread im Body, damit Embedder/Topic-
+  // Discovery den Konversationsverlauf sehen. Replies bleiben eigene Records mit
+  // ihrem eigenen body — das ist nur eine Anreicherung des Cluster-Ankers.
+  const isTopLevel = parentSubjectId === null;
+  const enrichedBody =
+    isTopLevel && msg.thread
+      ? [originalBody, ...flattenThreadTexts(msg.thread.messages)].filter(Boolean).join('\n\n')
+      : originalBody;
+
   const observedPayload = {
     id: msgSubjectId,
     type: 'message',
     source: SOURCE,
     title: null,
-    body: originalBody,
+    body: enrichedBody,
     payload: {
       slack_id: msg.id,
       slack_ts: msg.slack_ts,
@@ -230,13 +254,17 @@ function visitMessage(
   }
 
   // Edits zu einer Kette von record.updated abrollen. body[i] = previous_text
-  // des nächsten Edits (oder der aktuelle `text` beim letzten).
+  // des nächsten Edits (oder der aktuelle `text` beim letzten). Top-Level-
+  // Messages tragen den Thread im Body — siehe enrichedBody oben.
   if (hasEdits) {
     const edits = msg.edits!;
+    const threadSuffix =
+      isTopLevel && msg.thread ? flattenThreadTexts(msg.thread.messages).join('\n\n') : '';
     for (let i = 0; i < edits.length; i++) {
       const edit = edits[i]!;
       const isLast = i === edits.length - 1;
-      const newBody = isLast ? msg.text : edits[i + 1]!.previous_text;
+      const newText = isLast ? msg.text : edits[i + 1]!.previous_text;
+      const newBody = threadSuffix ? [newText, threadSuffix].filter(Boolean).join('\n\n') : newText;
       emissions.push(
         emit(RecordUpdated, {
           source: SOURCE,
