@@ -1,4 +1,4 @@
-import { runAgent, type AgentResult } from '../core';
+import { runAgent, type AgentCallOptions, type AgentResult } from '../core';
 import { ExecutorOutput, fallbackExecutorOutput, type ExecutorInput } from './output-schema';
 import { buildExecutorUserPrompt, EXECUTOR_SYSTEM_PROMPT } from './prompt';
 import { executorTools, getCreatedRecordIds, makeExecutorContext } from './tools';
@@ -11,7 +11,10 @@ export interface ExecutorRunResult {
   createdRecordIds: readonly string[];
 }
 
-export async function executorAgent(input: ExecutorInput): Promise<ExecutorRunResult> {
+export async function executorAgent(
+  input: ExecutorInput,
+  options?: AgentCallOptions,
+): Promise<ExecutorRunResult> {
   const ctx = makeExecutorContext(input.topicId, input.actionPlanId);
   const tools = executorTools(ctx);
   const result = await runAgent(
@@ -36,6 +39,7 @@ export async function executorAgent(input: ExecutorInput): Promise<ExecutorRunRe
           action_count: i.plan.actions.length,
         }),
       },
+      ...(options?.onEvent ? { onEvent: options.onEvent } : {}),
     },
     input,
   );

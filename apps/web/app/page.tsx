@@ -1,7 +1,7 @@
 import Link from 'next/link';
+import { AgentActivity } from '@/components/scoreboard/agent-activity';
 import { AutoRefresh } from '@/components/scoreboard/auto-refresh';
 import { CharacterFilter } from '@/components/scoreboard/character-filter';
-import { ReviewerActivity } from '@/components/scoreboard/reviewer-activity';
 import { ReviewerControl } from '@/components/scoreboard/reviewer-control';
 import { TopicCard } from '@/components/scoreboard/topic-card';
 import { getScoreboard } from '@/lib/from-db';
@@ -98,7 +98,7 @@ export default async function ScoreboardPage({
       <CharacterFilter counts={counts} language={language} />
 
       <ReviewerControl />
-      <ReviewerActivity />
+      <AgentActivity />
 
       <section className="flex flex-col gap-3">
         {visible.length === 0 ? (

@@ -1,31 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { AgentEvent } from '@repo/agent';
+import type { AgentActivityEnvelope } from '@repo/agent/shared';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 
-type AgentEvent =
-  | { type: 'turn_start'; turn: number }
-  | { type: 'tool_call'; turn: number; name: string; input: unknown }
-  | { type: 'tool_result'; turn: number; name: string; ok: boolean; bytes: number }
-  | { type: 'assistant_text'; turn: number; text: string }
-  | {
-      type: 'final';
-      turn: number;
-      trace_id: string | null;
-      trace_url: string | null;
-      fallback_reason: string | null;
-    }
-  | { type: 'error'; message: string };
-
-interface ActivityEnvelope {
-  topic_id: string;
-  triggered_by: string;
-  emitted_at: string;
-  event: AgentEvent;
-}
-
-interface DisplayEntry extends ActivityEnvelope {
+interface DisplayEntry extends AgentActivityEnvelope {
   id: string;
 }
 
@@ -76,18 +57,18 @@ function describe(event: AgentEvent): {
   }
 }
 
-export function ReviewerActivity(): React.ReactElement {
+export function AgentActivity(): React.ReactElement {
   const [entries, setEntries] = useState<DisplayEntry[]>([]);
   const [connected, setConnected] = useState(false);
   const counter = useRef(0);
 
   useEffect(() => {
-    const es = new EventSource('/api/admin/workers/reviewer/activity');
+    const es = new EventSource('/api/admin/workers/agent/activity');
 
     const onOpen = (): void => setConnected(true);
     const onActivity = (e: MessageEvent<string>): void => {
       try {
-        const env = JSON.parse(e.data) as ActivityEnvelope;
+        const env = JSON.parse(e.data) as AgentActivityEnvelope;
         counter.current += 1;
         const id = `${env.emitted_at}-${counter.current}`;
         setEntries((prev) => {
@@ -117,7 +98,7 @@ export function ReviewerActivity(): React.ReactElement {
       <CardContent className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">Reviewer activity</span>
+            <span className="text-sm font-medium">Agent activity</span>
             <Badge variant={connected ? 'default' : 'secondary'}>
               {connected ? 'live' : 'connecting'}
             </Badge>
@@ -129,8 +110,8 @@ export function ReviewerActivity(): React.ReactElement {
 
         {entries.length === 0 ? (
           <p className="text-muted-foreground text-xs">
-            Waiting for the reviewer to run. Trigger a topic update or hit Reset to see live turns
-            and tool calls.
+            Waiting for an agent run. Trigger a topic update, approve a plan, or hit Reset to see
+            live turns and tool calls.
           </p>
         ) : (
           <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto font-mono text-xs">
@@ -152,6 +133,7 @@ export function ReviewerActivity(): React.ReactElement {
                   <span className="text-muted-foreground max-w-[8rem] shrink-0 truncate">
                     {entry.topic_id}
                   </span>
+                  <span className="text-muted-foreground shrink-0 uppercase">{entry.agent}</span>
                   <span className={`shrink-0 font-medium ${toneClass}`}>{d.label}</span>
                   {d.detail ? (
                     <span className="text-muted-foreground truncate">{d.detail}</span>

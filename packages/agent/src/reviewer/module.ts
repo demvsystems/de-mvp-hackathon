@@ -3,7 +3,6 @@ import { db, eq, read, schema, sql } from '@repo/db';
 import { publishWithPersist } from '@repo/materializer';
 import {
   publish,
-  publishCore,
   TopicActionPlanModificationRequested,
   TopicActionPlanProposed,
   TopicAssessmentCreated,
@@ -13,12 +12,12 @@ import {
   type MessageContext,
   type Subscriber,
 } from '@repo/messaging';
-import type { AgentEvent, AgentEventListener } from '../core';
 import {
   ActionPlan,
   DEFAULT_PLAYBOOK,
   Playbook,
   PLAYBOOK_ID,
+  buildAgentActivityListener,
   applyReviewerAssessmentGuardrails,
   analyzeEvidenceRecord,
   collectActionPlanRecordIds,
@@ -110,36 +109,6 @@ function scheduleReview(topicId: string, ctx: MessageContext, triggeredBy: strin
 
 function unique(values: readonly string[]): string[] {
   return [...new Set(values)];
-}
-
-const ACTIVITY_SUBJECT_PREFIX = 'reviewer.activity';
-
-interface ActivityEnvelope {
-  readonly topic_id: string;
-  readonly triggered_by: string;
-  readonly emitted_at: string;
-  readonly event: AgentEvent;
-}
-
-function buildActivityListener(topicId: string, triggeredBy: string): AgentEventListener {
-  const subject = `${ACTIVITY_SUBJECT_PREFIX}.${topicId}`;
-  return (event) => {
-    const envelope: ActivityEnvelope = {
-      topic_id: topicId,
-      triggered_by: triggeredBy,
-      emitted_at: new Date().toISOString(),
-      event,
-    };
-    publishCore(subject, envelope).catch((err: unknown) => {
-      console.warn(
-        JSON.stringify({
-          msg: 'reviewer activity publish failed',
-          topic_id: topicId,
-          error: err instanceof Error ? err.message : String(err),
-        }),
-      );
-    });
-  };
 }
 
 function collectReferencedRecordIds(
@@ -398,7 +367,7 @@ async function reviewAndPublish(
   };
 
   const result = await reviewerAgent(input, undefined, {
-    onEvent: buildActivityListener(topicId, triggeredBy),
+    onEvent: buildAgentActivityListener({ agent: 'reviewer', topicId, triggeredBy }),
   });
 
   await persistAssessmentAndPlan({
@@ -497,7 +466,11 @@ async function modifyPlan(
       nextUserMessage: continuation,
     },
     {
-      onEvent: buildActivityListener(topicId, `modify:${planId}`),
+      onEvent: buildAgentActivityListener({
+        agent: 'reviewer',
+        topicId,
+        triggeredBy: `modify:${planId}`,
+      }),
     },
   );
 

@@ -8,6 +8,7 @@ import {
   type MessageContext,
   type Subscriber,
 } from '@repo/messaging';
+import { buildAgentActivityListener } from '../shared/activity';
 import { ActionPlan } from '../shared/action-plan';
 import { executorAgent } from './agent';
 import { EXECUTOR_ID } from './output-schema';
@@ -20,6 +21,11 @@ async function executeApprovedPlan(
 ): Promise<void> {
   const { topicId, planId } = args;
   const runId = `${EXECUTOR_ID}:${planId}:${Date.now()}`;
+  const activity = buildAgentActivityListener({
+    agent: 'executor',
+    topicId,
+    triggeredBy: TopicActionPlanApproved.event_type,
+  });
 
   const planRows = await db
     .select({
@@ -67,12 +73,19 @@ async function executeApprovedPlan(
     }),
   );
 
+  let agentCompleted = false;
   try {
-    const { result, createdRecordIds } = await executorAgent({
-      topicId,
-      actionPlanId: planId,
-      plan: planParsed.data,
-    });
+    const { result, createdRecordIds } = await executorAgent(
+      {
+        topicId,
+        actionPlanId: planId,
+        plan: planParsed.data,
+      },
+      {
+        onEvent: activity,
+      },
+    );
+    agentCompleted = true;
 
     if (result.output.status === 'failed') {
       await db
@@ -140,6 +153,9 @@ async function executeApprovedPlan(
     );
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
+    if (agentCompleted) {
+      activity({ type: 'error', message: errorMsg });
+    }
     await db
       .update(schema.topicActionPlans)
       .set({ status: 'failed', error: errorMsg })

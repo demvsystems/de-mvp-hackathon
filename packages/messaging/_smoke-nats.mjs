@@ -4,8 +4,8 @@ const nc = await connect({ servers: process.env.NATS_URL ?? 'nats://localhost:42
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
-const subject = 'reviewer.activity.smoke-test';
-const wildcard = 'reviewer.activity.>';
+const subject = 'agent.activity.smoke-test';
+const wildcard = 'agent.activity.>';
 
 const sub = nc.subscribe(wildcard);
 
