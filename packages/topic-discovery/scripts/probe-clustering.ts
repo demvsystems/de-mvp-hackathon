@@ -85,12 +85,12 @@ interface Variants {
 }
 
 function extractIntercom(conv: IntercomConv): Variants {
-  // as-pipeline: handle.ts:99 setzt body=null auf der Conversation; das Record
-  // hat nur title=subject. Embedder sieht bei [title, body].filter() effektiv
-  // nur das subject.
-  const asPipeline = conv.subject ?? '';
+  // as-pipeline: handle.ts emittet body = parts[].body konkateniert + title=subject.
+  // Embedder sieht entsprechend subject + alle parts-bodies.
   const partBodies = (conv.parts ?? []).map((p) => p.body ?? '').filter(Boolean);
-  const raw = [conv.subject ?? '', ...partBodies].filter(Boolean).join('\n\n');
+  const asPipeline = [conv.subject ?? '', ...partBodies].filter(Boolean).join('\n\n');
+  // raw == as-pipeline für Intercom: unsere Source liefert nur subject + parts.
+  const raw = asPipeline;
   return { asPipeline, raw };
 }
 

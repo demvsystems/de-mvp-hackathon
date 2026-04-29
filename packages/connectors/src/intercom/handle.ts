@@ -58,6 +58,16 @@ function emitConversationCascade(conv: IntercomConversation, emissions: Emission
   const convSubjectId = conversationId(conv.id);
   const updates = conv.updates ?? [];
 
+  // Conversation-Body = Parts-Bodies konkateniert. Parts werden zusätzlich als
+  // eigene Records emittiert (siehe emitPartCascade unten); für die Conversation
+  // als Cluster-Anker brauchen Embedder/Topic-Discovery den vollständigen
+  // Konversationskontext, sonst sieht das Embedding nur den Subject.
+  const conversationBody =
+    conv.parts
+      .map((p) => p.body)
+      .filter((b): b is string => b !== null && b.length > 0)
+      .join('\n\n') || null;
+
   const stateAt = (untilIdx: number): ConversationStateSlice => {
     let state: ConversationStateSlice = {
       state: conv.state,
@@ -96,7 +106,7 @@ function emitConversationCascade(conv: IntercomConversation, emissions: Emission
     type: 'conversation',
     source: SOURCE,
     title: s.subject,
-    body: null,
+    body: conversationBody,
     payload: {
       state: s.state,
       tags: s.tags,
