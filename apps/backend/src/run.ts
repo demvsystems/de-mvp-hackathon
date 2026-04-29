@@ -2,9 +2,9 @@ import { parseArgs } from 'node:util';
 import { isAbsolute, resolve } from 'node:path';
 import { watch, type FSWatcher } from 'node:fs';
 import type { ConnectorSpec } from '@repo/connectors';
-import { closeConnection, provisionStream } from '@repo/messaging';
+import { closeConnection, consumerInfo, provisionStream } from '@repo/messaging';
 import { connectors, sourceNames } from './registry';
-import { WorkerRegistry, type SubscriberWorkerSpec } from './workers';
+import { WorkerRegistry, type SubscriberWorkerSpec, type WorkerInfo } from './workers';
 import { startControlServer } from './control-server';
 
 // Lazy-loaded so a worker subset doesn't drag in unrelated env requirements
@@ -18,6 +18,14 @@ const SUBSCRIBER_WORKERS: Record<string, SubscriberWorkerSpec> = {
   'mention-extractor': {
     load: () => import('@repo/mention-extractor').then((m) => m.mentionExtractorModule),
     requiredEnv: ['DATABASE_URL'],
+  },
+  reviewer: {
+    load: () => import('@repo/agent/reviewer').then((m) => m.agentReviewerModule),
+    requiredEnv: ['AZURE_OPENAI_API_KEY'],
+  },
+  executor: {
+    load: () => import('@repo/agent/executor').then((m) => m.agentExecutorModule),
+    requiredEnv: ['AZURE_OPENAI_API_KEY'],
   },
   'topic-discovery': {
     load: () => import('@repo/topic-discovery').then((m) => m.topicDiscoveryModule),
@@ -70,16 +78,68 @@ async function runConnectors(opts: {
   };
 }
 
+// "Caught up" can't be expressed as a single stream-seq target: filtered
+// consumers (e.g. mention-extractor on `events.record.>`) won't see the last
+// connector publishes, and downstream workers consume messages cascade-
+// published *by* upstream workers at higher seqs than the connectors ever
+// reached. Instead, wait for every worker to report no pending matching
+// messages and no in-flight acks, and require that idle state to hold for a
+// short settle window so A→B→C cascades have a chance to surface.
+async function waitForQuiescence(
+  workers: WorkerInfo[],
+  opts: { timeoutMs: number; pollMs: number; settleMs: number },
+): Promise<void> {
+  if (workers.length === 0) return;
+  const deadline = Date.now() + opts.timeoutMs;
+  let idleSince = 0;
+  while (Date.now() < deadline) {
+    const states = await Promise.all(
+      workers.map(async (w) => {
+        const info = await consumerInfo(w.consumer);
+        return {
+          name: w.name,
+          pending: info?.num_pending ?? 0,
+          inflight: info?.num_ack_pending ?? 0,
+        };
+      }),
+    );
+    const idle = states.every((s) => s.pending === 0 && s.inflight === 0);
+    if (idle) {
+      if (idleSince === 0) idleSince = Date.now();
+      if (Date.now() - idleSince >= opts.settleMs) return;
+    } else {
+      idleSince = 0;
+      const busy = states
+        .filter((s) => s.pending > 0 || s.inflight > 0)
+        .map((s) => `${s.name}(pending=${s.pending},inflight=${s.inflight})`)
+        .join(', ');
+      console.error(`[backend] hydrate: waiting on ${busy}`);
+    }
+    await new Promise((r) => setTimeout(r, opts.pollMs));
+  }
+  throw new Error(`hydrate: timed out waiting for workers to quiesce`);
+}
+
 async function main(): Promise<void> {
+  // `pnpm run x -- --flag` forwards a literal `--` into argv; parseArgs would
+  // then bucket every following flag into positionals. Strip it so flags work
+  // regardless of how the caller invokes us.
+  const argv = process.argv.slice(2).filter((a) => a !== '--');
   const { values } = parseArgs({
+    args: argv,
     options: {
       workers: { type: 'string' },
       source: { type: 'string' },
       data: { type: 'string' },
       watch: { type: 'boolean', default: false },
+      'hydrate-and-exit': { type: 'boolean', default: false },
+      'hydrate-timeout-ms': { type: 'string' },
     },
     allowPositionals: true,
   });
+
+  const hydrateAndExit = values['hydrate-and-exit'] ?? false;
+  const hydrateTimeoutMs = Number(values['hydrate-timeout-ms'] ?? 60_000);
 
   // Bare `pnpm backend` defaults to everything except embedder (Azure cost),
   // topic-discovery (replaced by hand-seeded gold-standard topics — see
@@ -89,7 +149,7 @@ async function main(): Promise<void> {
   // which pass an explicit worker list via $BACKEND_WORKERS. The CLI
   // `--workers` flag still wins so single-package overrides keep working.
   // Pass `--workers ''` (or `BACKEND_WORKERS=`) to start nothing.
-  const AUTOSTART_EXCLUDE = new Set(['embedder', 'topic-discovery', 'reviewer']);
+  const AUTOSTART_EXCLUDE = new Set(['embedder', 'topic-discovery', 'reviewer', 'executor']);
   const workersSource =
     values.workers !== undefined ? values.workers : process.env['BACKEND_WORKERS'];
   const autoStart =
@@ -124,7 +184,7 @@ async function main(): Promise<void> {
   }
 
   const controlPort = Number(process.env['BACKEND_CONTROL_PORT'] ?? 3100);
-  const controlServer = startControlServer(registry, controlPort);
+  const controlServer = hydrateAndExit ? null : startControlServer(registry, controlPort);
 
   let connectorsHandle: { stop: () => void } | null = null;
   if (autoStart.includes('connectors')) {
@@ -145,8 +205,36 @@ async function main(): Promise<void> {
     connectorsHandle = await runConnectors({
       selectedSources,
       baseDir,
-      watchMode: values.watch ?? false,
+      watchMode: hydrateAndExit ? false : (values.watch ?? false),
     });
+  }
+
+  if (hydrateAndExit) {
+    const runningWorkers = registry.list().filter((w) => w.state === 'running');
+    console.error(
+      `[backend] hydrate: waiting for ${runningWorkers.map((w) => w.name).join(', ')} to quiesce`,
+    );
+    try {
+      await waitForQuiescence(runningWorkers, {
+        timeoutMs: hydrateTimeoutMs,
+        pollMs: 250,
+        settleMs: 1_000,
+      });
+      console.error('[backend] hydrate: drained, exiting');
+    } catch (err) {
+      console.error(`[backend] hydrate failed: ${err instanceof Error ? err.message : err}`);
+      await registry.stopAll().catch(() => undefined);
+      await closeConnection().catch(() => undefined);
+      process.exit(1);
+    }
+    connectorsHandle?.stop();
+    await registry.stopAll().catch((err) => console.error('[backend] stop error:', err));
+    await closeConnection().catch(() => undefined);
+    // Subscribers' consume loops can leave NATS handles open even after stop()
+    // (the iterator's poll/sleep timers re-arm one cycle past the stop signal).
+    // We're done with this process — exit explicitly so the demo wrapper script
+    // moves on to Phase 2 instead of hanging on a few stragglers.
+    process.exit(0);
   }
 
   console.error(
@@ -157,7 +245,7 @@ async function main(): Promise<void> {
     const shutdown = (signal: string): void => {
       console.error(`[backend] received ${signal}, draining`);
       connectorsHandle?.stop();
-      controlServer.close();
+      controlServer?.close();
       registry
         .stopAll()
         .catch((err) => console.error('[backend] stop error:', err))

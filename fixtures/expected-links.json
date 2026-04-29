@@ -22,7 +22,35 @@
         { "source": "jira", "external_id": "SHOP-142" },
         { "source": "slack", "external_id": "msg_004" },
         { "source": "upvoty", "external_id": "post_2004" }
-      ]
+      ],
+      "expected_action_plan": {
+        "rationale": "Bug in mehreren Quellen bestätigt (Intercom-Kunde, Slack-Reproduktion, Upvoty-Sammelfeedback). Standard-Triade: Jira-Bug-Ticket öffnen, betroffenen Kunden in Intercom benachrichtigen, Engineering-Slack-Thread mit Ticket-Referenz updaten.",
+        "actions": [
+          {
+            "kind": "create_jira_ticket",
+            "project": "SHOP",
+            "issue_type": "Bug",
+            "title": "Checkout 502 bei Firmenkreditkarte (Payment-Gateway-Timeout)",
+            "body": "Reproduziert in Slack-Thread; mehrere Kunden betroffen (siehe Intercom conv_9001, Upvoty post_2004). Region eu-central. Akzeptanzkriterium: Checkout schlägt nicht mehr mit 502 fehl bei Firmenkreditkarte.",
+            "labels": ["payment", "regression"]
+          },
+          {
+            "kind": "reply_intercom",
+            "conversation_record_id": "intercom:conv_9001",
+            "body": "Vielen Dank für die Meldung. Wir haben das Problem reproduzieren können und ein Bug-Ticket bei unserem Engineering-Team angelegt. Sie hören von uns, sobald ein Fix verfügbar ist."
+          },
+          {
+            "kind": "post_slack_message",
+            "channel": "#bugs",
+            "body": "Bug-Ticket angelegt, Kunde via Intercom benachrichtigt. Tracking läuft.",
+            "placement": { "mode": "thread", "thread_root_record_id": "slack:msg_004" }
+          }
+        ],
+        "cross_references": [
+          { "from_action_idx": 1, "to_action_idx": 0, "type": "mentions" },
+          { "from_action_idx": 2, "to_action_idx": 0, "type": "mentions" }
+        ]
+      }
     },
     {
       "id": "cluster_enterprise_sso",
@@ -34,7 +62,26 @@
         { "source": "intercom", "external_id": "conv_9003" },
         { "source": "jira", "external_id": "SHOP-201" },
         { "source": "slack", "external_id": "msg_005" }
-      ]
+      ],
+      "expected_action_plan": {
+        "rationale": "Feature-Request konvergiert: 3 Enterprise-Touchpoints (Upvoty, Intercom, Slack-Aggregation). Story/Epic in Jira anlegen, Slack-Channel-Post mit aggregierter Demand-Meldung; kein Intercom-Reply nötig (Kunde ist bereits in laufender Conversation).",
+        "actions": [
+          {
+            "kind": "create_jira_ticket",
+            "project": "SHOP",
+            "issue_type": "Story",
+            "title": "SAML-SSO für Enterprise-Tenants",
+            "body": "Mehrere Enterprise-Kunden fordern SAML-SSO als Voraussetzung für Lizenz-Rollouts (Upvoty post_2001, Intercom conv_9003, mehrere Slack-Touchpoints). Akzeptanzkriterium: SAML-2.0 IdP-Anbindung mit Just-in-Time Provisioning."
+          },
+          {
+            "kind": "post_slack_message",
+            "channel": "#product",
+            "body": "Drei Enterprise-Touchpoints zu SAML-SSO konvergieren. Story angelegt, Slot in Q2-Planning vorgesehen.",
+            "placement": { "mode": "channel" }
+          }
+        ],
+        "cross_references": [{ "from_action_idx": 1, "to_action_idx": 0, "type": "mentions" }]
+      }
     },
     {
       "id": "cluster_mobile_dashboard_perf",
@@ -54,7 +101,36 @@
         { "source": "intercom", "external_id": "conv_9004" },
         { "source": "jira", "external_id": "SHOP-205" },
         { "source": "slack", "external_id": "msg_006" }
-      ]
+      ],
+      "expected_action_plan": {
+        "rationale": "Performance-Bug auf älteren Android-Geräten in mehreren Quellen bestätigt. Standard-Triade: Jira-Bug, Intercom-Reply (interne Notiz, da Diagnose noch unklar), Slack-Thread-Update.",
+        "actions": [
+          {
+            "kind": "create_jira_ticket",
+            "project": "SHOP",
+            "issue_type": "Bug",
+            "title": "Mobile Dashboard 8-10s Ladezeit auf älteren Android-Geräten",
+            "body": "Außendienst-User berichten 8-10s Ladezeit (Upvoty post_2002, Intercom conv_9004, Slack-Diskussion). Akzeptanzkriterium: <3s Time-to-Interactive auf Android 10+ Mid-Tier.",
+            "labels": ["performance", "mobile"]
+          },
+          {
+            "kind": "reply_intercom",
+            "conversation_record_id": "intercom:conv_9004",
+            "body": "Danke für die detaillierte Beschreibung. Wir haben das Performance-Thema priorisiert und ein Bug-Ticket angelegt; wir melden uns mit einem Update, sobald wir Diagnose und Fix-Zeitplan haben.",
+            "internal_note": false
+          },
+          {
+            "kind": "post_slack_message",
+            "channel": "#bugs",
+            "body": "Mobile-Performance-Bug aus mehreren Quellen aggregiert; Bug-Ticket angelegt, Kunde via Intercom benachrichtigt.",
+            "placement": { "mode": "thread", "thread_root_record_id": "slack:msg_006" }
+          }
+        ],
+        "cross_references": [
+          { "from_action_idx": 1, "to_action_idx": 0, "type": "mentions" },
+          { "from_action_idx": 2, "to_action_idx": 0, "type": "mentions" }
+        ]
+      }
     },
     {
       "id": "cluster_customer_import_mapping",
@@ -72,7 +148,35 @@
         { "source": "slack", "external_id": "msg_002" },
         { "source": "intercom", "external_id": "conv_9005" },
         { "source": "jira", "external_id": "SHOP-220" }
-      ]
+      ],
+      "expected_action_plan": {
+        "rationale": "Datenqualitäts-Bug bestätigt durch Kunden-Eskalation und interne Slack-Diskussion. Bug-Ticket öffnen, Kunde benachrichtigen, Slack-Channel-Post zur Sichtbarkeit (kein Discovery-Thread vorhanden).",
+        "actions": [
+          {
+            "kind": "create_jira_ticket",
+            "project": "SHOP",
+            "issue_type": "Bug",
+            "title": "Customer-Import: Pflichtfeldprüfung im Mapper fehlt",
+            "body": "Massenimport scheitert ohne klare Fehlermeldung bei fehlenden Pflichtfeldern (Intercom conv_9005, Slack msg_002). Akzeptanzkriterium: Validierungs-Errors pro Zeile mit Spaltenreferenz; Vorab-Preview mit Pflichtfeld-Indikator.",
+            "labels": ["data-quality", "import"]
+          },
+          {
+            "kind": "reply_intercom",
+            "conversation_record_id": "intercom:conv_9005",
+            "body": "Vielen Dank für das Feedback. Wir haben den Mapper-Validierungs-Gap als Bug erfasst und an unser Engineering weitergegeben; Sie hören von uns mit Status-Update."
+          },
+          {
+            "kind": "post_slack_message",
+            "channel": "#bugs",
+            "body": "Customer-Import-Mapper hat Pflichtfeld-Validierung-Lücke; Bug-Ticket angelegt, Kunde benachrichtigt.",
+            "placement": { "mode": "channel" }
+          }
+        ],
+        "cross_references": [
+          { "from_action_idx": 1, "to_action_idx": 0, "type": "mentions" },
+          { "from_action_idx": 2, "to_action_idx": 0, "type": "mentions" }
+        ]
+      }
     },
     {
       "id": "cluster_tariflogik_regression",
@@ -82,7 +186,27 @@
       "members": [
         { "source": "slack", "external_id": "msg_001" },
         { "source": "jira", "external_id": "SHOP-240" }
-      ]
+      ],
+      "expected_action_plan": {
+        "rationale": "Internes QA-Anliegen ohne Kundenbezug — kein Intercom-Reply nötig. Story für Regressionstest-Suite anlegen, Engineering-Sichtbarkeit via Slack.",
+        "actions": [
+          {
+            "kind": "create_jira_ticket",
+            "project": "SHOP",
+            "issue_type": "Story",
+            "title": "Tariflogik-Regressionstest-Suite",
+            "body": "QA fordert automatisierte Regressionstest-Suite gegen die letzten drei realen Kundenfälle der Tariflogik. Akzeptanzkriterium: 3 End-to-End-Tests mit Fixture-Datensätzen; CI-integriert.",
+            "labels": ["qa", "tests"]
+          },
+          {
+            "kind": "post_slack_message",
+            "channel": "#product",
+            "body": "Story für Tariflogik-Regressionstests angelegt; QA-Team kann Anforderung verfeinern.",
+            "placement": { "mode": "thread", "thread_root_record_id": "slack:msg_001" }
+          }
+        ],
+        "cross_references": [{ "from_action_idx": 1, "to_action_idx": 0, "type": "mentions" }]
+      }
     }
   ],
   "noise": [

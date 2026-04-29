@@ -10,7 +10,9 @@ import {
 } from './langfuse';
 import type {
   AgentConfig,
+  AgentEvent,
   AgentResult,
+  AgentResumeOptions,
   AgentRunMetadata,
   PromptResolution,
   SystemPrompt,
@@ -366,6 +368,7 @@ async function resolveTraceUrl(
 export async function runAgent<TInput, TOutput>(
   config: AgentConfig<TInput, TOutput>,
   input: TInput,
+  resume?: AgentResumeOptions,
 ): Promise<AgentResult<TOutput>> {
   const client = config.client ?? getDefaultClient();
   const langfuse =
@@ -408,11 +411,22 @@ export async function runAgent<TInput, TOutput>(
     agentObservation.setTraceIO({ input: traceInput });
   }
 
-  const messages: Anthropic.Messages.MessageParam[] = [
-    { role: 'user', content: config.userPrompt(input) },
-  ];
+  const messages: Anthropic.Messages.MessageParam[] = resume
+    ? [...resume.priorMessages, { role: 'user', content: resume.nextUserMessage }]
+    : [{ role: 'user', content: config.userPrompt(input) }];
   const toolCalls: ToolCallRecord[] = [];
   let observationClosed = false;
+
+  const emit = (event: AgentEvent): void => {
+    if (!config.onEvent) return;
+    try {
+      config.onEvent(event);
+    } catch (err) {
+      console.warn(
+        `[agent-core] onEvent listener threw: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  };
 
   const closeObservation = async (
     output: unknown,
@@ -450,6 +464,14 @@ export async function runAgent<TInput, TOutput>(
     const traceId = agentObservation?.traceId ?? null;
     const traceUrl = await resolveTraceUrl(langfuse, traceId);
 
+    emit({
+      type: 'final',
+      turn: turns,
+      trace_id: traceId,
+      trace_url: traceUrl,
+      fallback_reason: fallbackReason,
+    });
+
     return {
       output,
       metadata: buildRunMetadata(
@@ -460,6 +482,7 @@ export async function runAgent<TInput, TOutput>(
         traceId,
         traceUrl,
       ),
+      messages: [...messages],
     };
   };
 
@@ -474,6 +497,7 @@ export async function runAgent<TInput, TOutput>(
 
   try {
     for (let turn = 1; turn <= maxTurns; turn++) {
+      emit({ type: 'turn_start', turn });
       const requestParams: Anthropic.Messages.MessageCreateParamsNonStreaming = {
         model: config.model,
         max_tokens: maxTokens,
@@ -557,24 +581,42 @@ export async function runAgent<TInput, TOutput>(
       generation?.end();
 
       if (response.stop_reason === 'tool_use') {
+        const interimText = extractFinalText(response.content);
+        if (interimText.length > 0) {
+          emit({ type: 'assistant_text', turn, text: interimText });
+        }
+
         const toolUses = response.content.filter(
           (b): b is Anthropic.Messages.ToolUseBlock => b.type === 'tool_use',
         );
 
         for (const tu of toolUses) {
           toolCalls.push({ name: tu.name, input: tu.input, turn });
+          emit({ type: 'tool_call', turn, name: tu.name, input: tu.input });
         }
 
         const toolResults = await Promise.all(
-          toolUses.map((tu) =>
-            runToolCall(
+          toolUses.map(async (tu) => {
+            const result = await runToolCall(
               config.tools,
               tu,
               toolResultByteLimit,
               generation ?? agentObservation,
               turn,
-            ),
-          ),
+            );
+            const bytes =
+              typeof result.content === 'string'
+                ? result.content.length
+                : JSON.stringify(result.content).length;
+            emit({
+              type: 'tool_result',
+              turn,
+              name: tu.name,
+              ok: result.is_error !== true,
+              bytes,
+            });
+            return result;
+          }),
         );
 
         messages.push({ role: 'assistant', content: response.content });
@@ -660,6 +702,7 @@ export async function runAgent<TInput, TOutput>(
         error.message,
       );
     }
+    emit({ type: 'error', message: err instanceof Error ? err.message : String(err) });
     throw err;
   }
 

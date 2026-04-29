@@ -171,6 +171,8 @@ export type TopicContext = {
     character: Character;
     escalation_score: number;
     assessed_at: string;
+    assessor: string;
+    trace_id: string | null;
     reasoning: AssessmentReasoning;
   };
   members: TopicMember[];

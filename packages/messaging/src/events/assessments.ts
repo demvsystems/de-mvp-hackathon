@@ -12,6 +12,7 @@ export const AssessmentCreatedPayload = z.object({
   escalation_score: z.number(),
   reasoning: z.record(z.string(), z.unknown()),
   triggered_by: z.string().nullable(),
+  trace_id: z.string().nullable().optional(),
 });
 export type AssessmentCreatedPayload = z.infer<typeof AssessmentCreatedPayload>;
 

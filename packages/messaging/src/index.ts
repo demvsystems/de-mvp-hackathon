@@ -3,10 +3,12 @@ export { EventEnvelope, SubjectKind } from './envelope';
 export { publish, type PublishInput, type PublishAck } from './publisher';
 export { createSubscriber, Subscriber, type MessageContext } from './subscriber';
 export { closeConnection } from './connection';
+export { publishCore, subscribeCore, type CoreSubscription } from './core-pubsub';
 export {
   provisionStream,
   provisionConsumer,
   deleteConsumer,
+  consumerInfo,
   STREAM_NAME,
   STREAM_SUBJECTS,
   type ConsumerOptions,

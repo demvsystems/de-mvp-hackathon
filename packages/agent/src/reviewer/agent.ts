@@ -22,7 +22,7 @@ export const reviewerAgent = defineAgent<ReviewerInput, AssessmentOutput>({
   tools: reviewerTools,
   outputSchema: AssessmentOutput,
   fallback: fallbackAssessment,
-  maxTurns: 6,
+  maxTurns: 8,
   temperature: 0,
   observability: {
     traceName: 'llm-reviewer.review-topic',

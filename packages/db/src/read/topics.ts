@@ -18,6 +18,7 @@ type RankedAssessment = {
   escalationScore: number;
   reasoning: unknown;
   triggeredBy: string | null;
+  traceId: string | null;
 };
 
 export async function getTopics(input: GetTopicsInput): Promise<TopicWithAssessments[]> {
@@ -34,7 +35,8 @@ export async function getTopics(input: GetTopicsInput): Promise<TopicWithAssessm
                  character       AS "character",
                  escalation_score AS "escalationScore",
                  reasoning       AS "reasoning",
-                 triggered_by    AS "triggeredBy"
+                 triggered_by    AS "triggeredBy",
+                 trace_id        AS "traceId"
           FROM (
             SELECT a.*,
                    ROW_NUMBER() OVER (PARTITION BY topic_id ORDER BY assessed_at DESC) AS rn
@@ -60,6 +62,7 @@ export async function getTopics(input: GetTopicsInput): Promise<TopicWithAssessm
       escalationScore: a.escalationScore,
       reasoning: a.reasoning,
       triggeredBy: a.triggeredBy,
+      traceId: a.traceId,
     });
     grouped.set(a.topicId, list);
   }
@@ -97,7 +100,8 @@ export async function listActiveTopics(
                  character       AS "character",
                  escalation_score AS "escalationScore",
                  reasoning       AS "reasoning",
-                 triggered_by    AS "triggeredBy"
+                 triggered_by    AS "triggeredBy",
+                 trace_id        AS "traceId"
           FROM (
             SELECT a.*,
                    ROW_NUMBER() OVER (PARTITION BY topic_id ORDER BY assessed_at DESC) AS rn
@@ -120,6 +124,7 @@ export async function listActiveTopics(
       escalationScore: a.escalationScore,
       reasoning: a.reasoning,
       triggeredBy: a.triggeredBy,
+      traceId: a.traceId,
     });
     grouped.set(a.topicId, list);
   }

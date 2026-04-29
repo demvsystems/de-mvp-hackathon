@@ -1,5 +1,7 @@
 import { AssessmentCharacter } from '@repo/messaging';
 import { z } from 'zod';
+import { ActionPlan } from '../shared/action-plan';
+import type { Playbook } from '../shared/playbook';
 
 export const AssessmentSummary = z.object({
   text: z.string().min(1).max(4000),
@@ -19,6 +21,7 @@ export const AssessmentOutput = z.object({
   escalation_score: z.number().min(0).max(1),
   summary: AssessmentSummary,
   reasoning: AssessmentReasoning,
+  recommended_action_plan: ActionPlan.nullable(),
 });
 export type AssessmentOutput = z.infer<typeof AssessmentOutput>;
 
@@ -27,6 +30,12 @@ export const ASSESSOR_ID = 'llm:claude:v1';
 export interface ReviewerInput {
   topicId: string;
   triggeredBy: string;
+  playbook?: Playbook;
+  fewShotExamples?: ReadonlyArray<ActionPlan>;
+  modify?: {
+    priorPlan: ActionPlan;
+    feedback: string;
+  };
 }
 
 export function fallbackAssessment(input: ReviewerInput, reason: string): AssessmentOutput {
@@ -43,5 +52,6 @@ export function fallbackAssessment(input: ReviewerInput, reason: string): Assess
       additional_notes:
         'fallback emitted by llm-reviewer because the agent run did not produce a valid assessment',
     },
+    recommended_action_plan: null,
   };
 }

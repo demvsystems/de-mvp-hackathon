@@ -29,6 +29,27 @@
       "when": 1777453713763,
       "tag": "0003_perfect_true_believers",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777449067696,
+      "tag": "0003_breezy_maddog",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777449469562,
+      "tag": "0004_sticky_dakota_north",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777470000000,
+      "tag": "0005_guardrail_events",
+      "breakpoints": true
     }
   ]
 }

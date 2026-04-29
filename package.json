@@ -25,6 +25,7 @@
     "db:studio": "pnpm --filter @repo/db studio",
     "db:preseed-topics": "tsx scripts/preseed-expected-topics.ts",
     "db:mock-assess": "tsx scripts/mock-assess-topics.ts",
+    "feedback:promote": "tsx scripts/feedback-to-fixture.ts",
     "backend": "pnpm --filter @repo/backend start",
     "backend:dev": "pnpm --filter @repo/backend dev",
     "start:mock": "scripts/start-mode.sh mock",

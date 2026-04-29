@@ -3,10 +3,13 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, TrendingDown, TrendingUp, Minus, Moon } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
+import { ActionPlanCard } from '@/components/scoreboard/action-plan-card';
 import { CharacterBadge } from '@/components/scoreboard/character-badge';
 import { EscalationBar } from '@/components/scoreboard/escalation-bar';
+import { FeedbackWidget } from '@/components/scoreboard/feedback-widget';
 import { TopicMemberRow } from '@/components/scoreboard/topic-member-row';
 import { getTopic } from '@/lib/from-db';
+import { listActionPlansForTopic } from '@/lib/from-db-action-plans';
 import type { ActivityTrend } from '@/lib/types';
 
 const trendIcon: Record<ActivityTrend, typeof TrendingUp> = {
@@ -33,7 +36,11 @@ export default async function TopicDetailPage({
   params: Promise<{ topicId: string }>;
 }) {
   const { topicId } = await params;
-  const topic = await getTopic(decodeURIComponent(topicId));
+  const decodedId = decodeURIComponent(topicId);
+  const [topic, actionPlans] = await Promise.all([
+    getTopic(decodedId),
+    listActionPlansForTopic(decodedId),
+  ]);
   if (!topic) notFound();
 
   const TrendIcon = trendIcon[topic.activity.trend];
@@ -91,6 +98,19 @@ export default async function TopicDetailPage({
           hint={`${topic.stagnation.signal_count} signals`}
         />
       </section>
+
+      {actionPlans.length > 0 ? <ActionPlanCard plans={actionPlans} /> : null}
+
+      {topic.latest_assessment.assessor ? (
+        <FeedbackWidget
+          topicId={topic.id}
+          assessor={topic.latest_assessment.assessor}
+          assessedAt={topic.latest_assessment.assessed_at}
+          traceId={topic.latest_assessment.trace_id}
+          currentCharacter={topic.latest_assessment.character}
+          currentEscalationScore={topic.latest_assessment.escalation_score}
+        />
+      ) : null}
 
       <section className="grid gap-6 lg:grid-cols-[1fr_minmax(280px,360px)]">
         <Card>

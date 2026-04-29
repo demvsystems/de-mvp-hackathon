@@ -163,9 +163,15 @@ importers:
       '@base-ui/react':
         specifier: ^1.4.1
         version: 1.4.1(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@repo/agent':
+        specifier: workspace:*
+        version: link:../../packages/agent
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@repo/messaging':
+        specifier: workspace:*
+        version: link:../../packages/messaging
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1

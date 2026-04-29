@@ -48,7 +48,7 @@ ensure_db "$FULL_URL"
 echo "[start-all] preseeding topics"
 DATABASE_URL="$MOCK_URL" pnpm db:preseed-topics
 DATABASE_URL="$MOCK_URL" pnpm db:mock-assess
-DATABASE_URL="$DEMO_URL" pnpm db:preseed-topics
+DATABASE_URL="$DEMO_URL" pnpm db:preseed-topics -- --preserve-assessments
 DATABASE_URL="$FULL_URL" pnpm db:preseed-topics
 
 # Forward Ctrl+C to all children so the terminal stays responsive.

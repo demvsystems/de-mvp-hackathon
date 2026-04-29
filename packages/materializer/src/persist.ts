@@ -149,11 +149,12 @@ export async function persistEmbedding(payload: EmbeddingCreatedPayload): Promis
 export async function persistAssessment(payload: AssessmentCreatedPayload): Promise<void> {
   await sql`
     INSERT INTO topic_assessments
-      (topic_id, assessor, assessed_at, character, escalation_score, reasoning, triggered_by)
+      (topic_id, assessor, assessed_at, character, escalation_score, reasoning, triggered_by, trace_id)
     VALUES
       (${payload.topic_id}, ${payload.assessor}, ${payload.assessed_at},
        ${payload.character}, ${payload.escalation_score},
-       ${JSON.stringify(payload.reasoning)}::jsonb, ${payload.triggered_by})
+       ${JSON.stringify(payload.reasoning)}::jsonb, ${payload.triggered_by},
+       ${payload.trace_id ?? null})
     ON CONFLICT (topic_id, assessor, assessed_at) DO NOTHING
   `;
 }

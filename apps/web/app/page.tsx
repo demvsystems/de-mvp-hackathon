@@ -1,5 +1,6 @@
 import { AutoRefresh } from '@/components/scoreboard/auto-refresh';
 import { CharacterFilter } from '@/components/scoreboard/character-filter';
+import { ReviewerActivity } from '@/components/scoreboard/reviewer-activity';
 import { ReviewerControl } from '@/components/scoreboard/reviewer-control';
 import { TopicCard } from '@/components/scoreboard/topic-card';
 import { getScoreboard } from '@/lib/from-db';
@@ -56,6 +57,7 @@ export default async function ScoreboardPage({
       </header>
 
       <ReviewerControl />
+      <ReviewerActivity />
 
       <CharacterFilter counts={counts} />
 

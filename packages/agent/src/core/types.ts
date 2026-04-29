@@ -51,6 +51,7 @@ export interface AgentConfig<TInput, TOutput> {
   readonly toolResultByteLimit?: number;
   readonly langfuse?: LangfuseClient | null;
   readonly observability?: AgentObservabilityConfig<TInput, TOutput>;
+  readonly onEvent?: AgentEventListener;
 }
 
 export interface PromptResolution {
@@ -66,6 +67,33 @@ export interface ToolCallRecord {
   readonly turn: number;
 }
 
+export type AgentEvent =
+  | { readonly type: 'turn_start'; readonly turn: number }
+  | {
+      readonly type: 'tool_call';
+      readonly turn: number;
+      readonly name: string;
+      readonly input: unknown;
+    }
+  | {
+      readonly type: 'tool_result';
+      readonly turn: number;
+      readonly name: string;
+      readonly ok: boolean;
+      readonly bytes: number;
+    }
+  | { readonly type: 'assistant_text'; readonly turn: number; readonly text: string }
+  | {
+      readonly type: 'final';
+      readonly turn: number;
+      readonly trace_id: string | null;
+      readonly trace_url: string | null;
+      readonly fallback_reason: string | null;
+    }
+  | { readonly type: 'error'; readonly message: string };
+
+export type AgentEventListener = (event: AgentEvent) => void;
+
 export interface AgentRunMetadata {
   readonly turns: number;
   readonly fallback_reason: string | null;
@@ -78,6 +106,20 @@ export interface AgentRunMetadata {
 export interface AgentResult<TOutput> {
   readonly output: TOutput;
   readonly metadata: AgentRunMetadata;
+  readonly messages: ReadonlyArray<Anthropic.Messages.MessageParam>;
 }
 
-export type Agent<TInput, TOutput> = (input: TInput) => Promise<AgentResult<TOutput>>;
+export interface AgentResumeOptions {
+  readonly priorMessages: ReadonlyArray<Anthropic.Messages.MessageParam>;
+  readonly nextUserMessage: string;
+}
+
+export interface AgentCallOptions {
+  readonly onEvent?: AgentEventListener;
+}
+
+export type Agent<TInput, TOutput> = (
+  input: TInput,
+  resume?: AgentResumeOptions,
+  options?: AgentCallOptions,
+) => Promise<AgentResult<TOutput>>;

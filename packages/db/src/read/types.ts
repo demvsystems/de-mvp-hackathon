@@ -9,7 +9,13 @@ export type TopicAssessmentRow = typeof topicAssessments.$inferSelect;
 
 export type RecentAssessment = Pick<
   TopicAssessmentRow,
-  'assessor' | 'assessedAt' | 'character' | 'escalationScore' | 'reasoning' | 'triggeredBy'
+  | 'assessor'
+  | 'assessedAt'
+  | 'character'
+  | 'escalationScore'
+  | 'reasoning'
+  | 'triggeredBy'
+  | 'traceId'
 >;
 
 export interface TopicWithAssessments {

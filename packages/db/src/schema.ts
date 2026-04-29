@@ -13,6 +13,7 @@ import {
   text,
   timestamp,
   unique,
+  uuid,
   vector,
 } from 'drizzle-orm/pg-core';
 
@@ -133,12 +134,128 @@ export const topicAssessments = pgTable(
     escalationScore: real('escalation_score').notNull(),
     reasoning: jsonb('reasoning').notNull(),
     triggeredBy: text('triggered_by'),
+    traceId: text('trace_id'),
   },
   (t) => [
     primaryKey({ columns: [t.topicId, t.assessor, t.assessedAt] }),
     index('topic_assessments_recent').on(t.topicId, t.assessedAt.desc()),
   ],
 );
+
+export const topicFeedback = pgTable(
+  'topic_feedback',
+  {
+    id: bigserial('id', { mode: 'bigint' }).primaryKey(),
+    topicId: text('topic_id').notNull(),
+    assessor: text('assessor').notNull(),
+    assessedAt: timestamp('assessed_at', { withTimezone: true }).notNull(),
+    traceId: text('trace_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+
+    thumb: text('thumb'),
+    rating: integer('rating'),
+    correctedCharacter: text('corrected_character'),
+    correctedEscalationScore: real('corrected_escalation_score'),
+    note: text('note'),
+
+    status: text('status').notNull().default('open'),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('topic_feedback_topic').on(t.topicId, t.createdAt.desc()),
+    index('topic_feedback_open')
+      .on(t.status, t.createdAt.desc())
+      .where(sql`status = 'open'`),
+    index('topic_feedback_assessment').on(t.topicId, t.assessor, t.assessedAt),
+  ],
+);
+
+export const guardrailEvents = pgTable(
+  'guardrail_events',
+  {
+    id: bigserial('id', { mode: 'bigint' }).primaryKey(),
+    topicId: text('topic_id').notNull(),
+    assessor: text('assessor').notNull(),
+    assessedAt: timestamp('assessed_at', { withTimezone: true }).notNull(),
+    traceId: text('trace_id'),
+    stage: text('stage').notNull(),
+    ruleId: text('rule_id').notNull(),
+    severity: text('severity').notNull(),
+    decision: text('decision').notNull(),
+    detail: text('detail').notNull(),
+    recordIds: jsonb('record_ids').notNull().default([]),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    status: text('status').notNull().default('open'),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('guardrail_events_topic').on(t.topicId, t.createdAt.desc()),
+    index('guardrail_events_open')
+      .on(t.status, t.createdAt.desc())
+      .where(sql`status = 'open'`),
+    index('guardrail_events_trace').on(t.traceId),
+  ],
+);
+
+export const reviewerSessions = pgTable(
+  'reviewer_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    topicId: text('topic_id').notNull(),
+    assessor: text('assessor').notNull(),
+    model: text('model').notNull(),
+    messages: jsonb('messages').notNull().default([]),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('reviewer_sessions_topic').on(t.topicId, t.updatedAt.desc())],
+);
+
+export const topicActionPlans = pgTable(
+  'topic_action_plans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    topicId: text('topic_id').notNull(),
+    sessionId: uuid('session_id').notNull(),
+    supersedesId: uuid('supersedes_id'),
+    status: text('status').notNull().default('proposed'),
+    plan: jsonb('plan').notNull(),
+    rationale: text('rationale'),
+    proposedAt: timestamp('proposed_at', { withTimezone: true }).notNull().defaultNow(),
+    decisionKind: text('decision_kind'),
+    decisionAt: timestamp('decision_at', { withTimezone: true }),
+    decisionBy: text('decision_by'),
+    modificationFeedback: text('modification_feedback'),
+    executedAt: timestamp('executed_at', { withTimezone: true }),
+    executorRunId: text('executor_run_id'),
+    createdRecords: jsonb('created_records'),
+    error: text('error'),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.sessionId],
+      foreignColumns: [reviewerSessions.id],
+      name: 'topic_action_plans_session_fk',
+    }),
+    foreignKey({
+      columns: [t.supersedesId],
+      foreignColumns: [t.id],
+      name: 'topic_action_plans_supersedes_fk',
+    }),
+    index('topic_action_plans_topic').on(t.topicId, t.proposedAt.desc()),
+    index('topic_action_plans_proposed')
+      .on(t.proposedAt.desc())
+      .where(sql`status = 'proposed'`),
+  ],
+);
+
+export const companyPlaybook = pgTable('company_playbook', {
+  id: text('id').primaryKey(),
+  playbook: jsonb('playbook').notNull(),
+  version: integer('version').notNull().default(1),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: text('updated_by'),
+});
 
 export const embeddings = pgTable(
   'embeddings',

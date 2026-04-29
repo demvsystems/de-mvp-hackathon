@@ -1,6 +1,14 @@
 import { z } from 'zod';
 
-export const SubjectKind = z.enum(['record', 'edge', 'topic', 'embedding', 'assessment', 'system']);
+export const SubjectKind = z.enum([
+  'record',
+  'edge',
+  'topic',
+  'embedding',
+  'assessment',
+  'action_plan',
+  'system',
+]);
 export type SubjectKind = z.infer<typeof SubjectKind>;
 
 export const EventEnvelope = z.object({

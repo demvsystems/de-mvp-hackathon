@@ -235,6 +235,8 @@ export async function getTopic(id: string): Promise<TopicContext | null> {
       character: asCharacter(latest?.character),
       escalation_score: latest?.escalationScore ?? 0,
       assessed_at: latest?.assessedAt.toISOString() ?? topic.discoveredAt.toISOString(),
+      assessor: latest?.assessor ?? '',
+      trace_id: latest?.traceId ?? null,
       reasoning: latestReasoning,
     },
     members,

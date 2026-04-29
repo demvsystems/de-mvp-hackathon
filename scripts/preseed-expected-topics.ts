@@ -2,8 +2,9 @@
 // `fixtures/expected-links.json` so the reviewer can be exercised against
 // known-correct topics while real topic-discovery is still being tuned.
 //
-// Re-runnable. Each run wipes existing topics + their `discusses` edges +
-// topic_assessments (assessments would otherwise dangle) and re-seeds.
+// Re-runnable. By default each run wipes existing topics + their `discusses`
+// edges + topic_assessments and re-seeds. Pass `--preserve-assessments` to
+// keep existing reviewer history while refreshing topics/edges.
 //
 // Usage: pnpm db:preseed-topics
 
@@ -134,6 +135,7 @@ function computeActivity(
 
 async function main(): Promise<void> {
   if (existsSync('.env')) process.loadEnvFile();
+  const preserveAssessments = process.argv.includes('--preserve-assessments');
 
   const { sql } = await import('../packages/db/src/client');
   const { publish, TopicCreated, closeConnection } =
@@ -207,7 +209,9 @@ async function main(): Promise<void> {
   }
 
   await sql.begin(async (tx) => {
-    await tx`DELETE FROM topic_assessments`;
+    if (!preserveAssessments) {
+      await tx`DELETE FROM topic_assessments`;
+    }
     await tx`DELETE FROM edges WHERE type = 'discusses'`;
     await tx`DELETE FROM topics`;
 
@@ -262,6 +266,10 @@ async function main(): Promise<void> {
       `  ${c.topic_id}  ${c.label}  members=${c.resolved.length}/${c.members.length}` +
         (c.missing.length > 0 ? '  [INCOMPLETE]' : ''),
     );
+  }
+
+  if (preserveAssessments) {
+    console.log('Preserved existing topic_assessments.');
   }
 
   console.log('Publishing TopicCreated events to wake the reviewer...');

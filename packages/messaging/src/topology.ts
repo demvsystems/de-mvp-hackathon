@@ -50,6 +50,23 @@ export async function provisionConsumer(opts: ConsumerOptions): Promise<void> {
   }
 }
 
+export async function consumerInfo(
+  durable_name: string,
+): Promise<{ num_pending: number; num_ack_pending: number } | null> {
+  const nc = await getConnection();
+  const jsm = await jetstreamManager(nc);
+  try {
+    const info = await jsm.consumers.info(STREAM_NAME, durable_name);
+    return {
+      num_pending: info.num_pending,
+      num_ack_pending: info.num_ack_pending,
+    };
+  } catch (err) {
+    if (isNotFound(err)) return null;
+    throw err;
+  }
+}
+
 export async function deleteConsumer(durable_name: string): Promise<void> {
   const nc = await getConnection();
   const jsm = await jetstreamManager(nc);

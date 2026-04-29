@@ -7,7 +7,9 @@
   "types": "./src/core/index.ts",
   "exports": {
     ".": "./src/core/index.ts",
-    "./reviewer": "./src/reviewer/index.ts"
+    "./reviewer": "./src/reviewer/index.ts",
+    "./executor": "./src/executor/index.ts",
+    "./shared": "./src/shared/index.ts"
   },
   "scripts": {
     "lint": "echo 'no lint'",
