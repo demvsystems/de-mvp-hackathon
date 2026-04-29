@@ -3,8 +3,8 @@ import type { Character } from '@/lib/types';
 
 const fillByCharacter: Record<Character, string> = {
   attention: 'bg-destructive',
-  opportunity: 'bg-emerald-500 dark:bg-emerald-400',
-  noteworthy: 'bg-amber-500 dark:bg-amber-400',
+  opportunity: 'bg-amber-500 dark:bg-amber-400',
+  noteworthy: 'bg-emerald-500 dark:bg-emerald-400',
   calm: 'bg-muted-foreground/40',
 };
 

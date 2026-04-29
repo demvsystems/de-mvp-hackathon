@@ -55,9 +55,9 @@ export default async function ScoreboardPage({
         </p>
       </header>
 
-      <ReviewerControl />
-
       <CharacterFilter counts={counts} />
+
+      <ReviewerControl />
 
       <section className="flex flex-col gap-3">
         {visible.length === 0 ? (

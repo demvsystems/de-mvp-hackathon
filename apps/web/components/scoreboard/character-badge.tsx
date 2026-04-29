@@ -12,9 +12,9 @@ const labels: Record<Character, string> = {
 const styles: Record<Character, string> = {
   attention: 'bg-destructive/10 text-destructive border-destructive/30 dark:bg-destructive/20',
   opportunity:
-    'bg-emerald-500/10 text-emerald-700 border-emerald-600/30 dark:bg-emerald-500/15 dark:text-emerald-300',
-  noteworthy:
     'bg-amber-500/10 text-amber-700 border-amber-600/30 dark:bg-amber-500/15 dark:text-amber-300',
+  noteworthy:
+    'bg-emerald-500/10 text-emerald-700 border-emerald-600/30 dark:bg-emerald-500/15 dark:text-emerald-300',
   calm: 'bg-muted text-muted-foreground border-border',
 };
 

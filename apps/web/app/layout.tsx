@@ -2,7 +2,9 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
 import './globals.css';
+import { LanguagePicker } from '@/components/scoreboard/language-picker';
 import { ThemeProvider } from '@/components/theme-provider';
+import { getPreferredLanguage } from '@/lib/language-server';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -15,39 +17,45 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Datenkrake — Scoreboard',
-  description: 'Active topics across Slack, Jira, GitHub and Confluence.',
+  title: 'DataClaw — Dashboard',
+  description: 'Priority dashboard across Slack, Jira, GitHub and Confluence.',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const language = await getPreferredLanguage('en');
+
   return (
     <html
-      lang="en"
+      lang={language}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          forcedTheme="light"
+          defaultTheme="light"
+          enableSystem={false}
           disableTransitionOnChange
         >
           <header className="border-border/60 bg-background/80 sticky top-0 z-10 border-b backdrop-blur">
             <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-6 py-3">
               <span className="bg-foreground text-background inline-flex size-6 items-center justify-center rounded-md font-mono text-[11px] font-bold">
-                DK
+                DC
               </span>
-              <span className="font-heading text-sm font-medium">Datenkrake</span>
-              <span className="text-muted-foreground text-xs">/ scoreboard</span>
+              <span className="font-heading text-sm font-medium">DataClaw</span>
+              <span className="text-muted-foreground text-xs">/ dashboard</span>
+              <div className="ml-auto">
+                <LanguagePicker language={language} />
+              </div>
             </div>
           </header>
           <main className="flex-1">{children}</main>
-          <Toaster />
+          <Toaster theme="light" />
         </ThemeProvider>
       </body>
     </html>

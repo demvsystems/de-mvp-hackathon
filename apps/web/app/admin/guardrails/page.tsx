@@ -5,19 +5,12 @@ import { GuardrailDemoTrigger } from '@/components/admin/guardrail-demo-trigger'
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { getGuardrailDemoModel } from '@/lib/guardrail-demo';
+import { getLangfuseTraceUrl } from '@/lib/langfuse';
 
 export const dynamic = 'force-dynamic';
 
 function fmt(iso: string): string {
   return new Date(iso).toISOString().slice(0, 16).replace('T', ' ') + 'Z';
-}
-
-function langfuseTraceUrl(traceId: string): string | null {
-  const base = process.env['LANGFUSE_BASE_URL'] ?? process.env['LANGFUSE_HOST'];
-  const projectId = process.env['LANGFUSE_PROJECT_ID'];
-  if (!base) return null;
-  if (projectId) return `${base}/project/${projectId}/traces/${traceId}`;
-  return `${base}/traces/${traceId}`;
 }
 
 function severityVariant(
@@ -52,7 +45,7 @@ export default async function GuardrailsDemoPage({
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm"
       >
         <ArrowLeft className="size-4" />
-        back to triage
+        back to dashboard
       </Link>
 
       <header className="flex flex-col gap-4">
@@ -274,7 +267,7 @@ export default async function GuardrailsDemoPage({
           ) : (
             <ul className="flex flex-col gap-3">
               {model.live_events.map((event) => {
-                const traceUrl = event.trace_id ? langfuseTraceUrl(event.trace_id) : null;
+                const traceUrl = event.trace_id ? getLangfuseTraceUrl(event.trace_id) : null;
                 return (
                   <li key={event.id}>
                     <Card size="sm" className="bg-muted/20">

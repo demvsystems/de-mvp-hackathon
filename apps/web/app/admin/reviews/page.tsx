@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { GoldenCandidateReviewActions } from '@/components/admin/golden-candidate-review-actions';
 import { GuardrailReviewActions } from '@/components/admin/guardrail-review-actions';
 import { ReviewActions } from '@/components/admin/review-actions';
+import { getLangfuseTraceUrl } from '@/lib/langfuse';
 import {
   listOpenFeedback,
   listOpenGoldenCandidates,
@@ -18,14 +19,6 @@ export const dynamic = 'force-dynamic';
 
 function fmt(iso: string): string {
   return new Date(iso).toISOString().slice(0, 16).replace('T', ' ') + 'Z';
-}
-
-function langfuseTraceUrl(traceId: string): string | null {
-  const base = process.env['LANGFUSE_BASE_URL'] ?? process.env['LANGFUSE_HOST'];
-  const projectId = process.env['LANGFUSE_PROJECT_ID'];
-  if (!base) return null;
-  if (projectId) return `${base}/project/${projectId}/traces/${traceId}`;
-  return `${base}/traces/${traceId}`;
 }
 
 export default async function ReviewsPage(): Promise<React.ReactElement> {
@@ -94,7 +87,7 @@ export default async function ReviewsPage(): Promise<React.ReactElement> {
 }
 
 function GoldenCandidateRow({ candidate }: { candidate: OpenGoldenCandidate }): React.ReactElement {
-  const traceUrl = candidate.trace_id ? langfuseTraceUrl(candidate.trace_id) : null;
+  const traceUrl = candidate.trace_id ? getLangfuseTraceUrl(candidate.trace_id) : null;
   return (
     <Card>
       <CardContent className="flex flex-col gap-3">
@@ -142,7 +135,7 @@ function GoldenCandidateRow({ candidate }: { candidate: OpenGoldenCandidate }): 
 }
 
 function FeedbackRow({ feedback }: { feedback: OpenFeedback }): React.ReactElement {
-  const traceUrl = feedback.trace_id ? langfuseTraceUrl(feedback.trace_id) : null;
+  const traceUrl = feedback.trace_id ? getLangfuseTraceUrl(feedback.trace_id) : null;
   return (
     <Card>
       <CardContent className="flex flex-col gap-3">
@@ -218,7 +211,7 @@ function FeedbackRow({ feedback }: { feedback: OpenFeedback }): React.ReactEleme
 }
 
 function GuardrailEventRow({ event }: { event: OpenGuardrailEvent }): React.ReactElement {
-  const traceUrl = event.trace_id ? langfuseTraceUrl(event.trace_id) : null;
+  const traceUrl = event.trace_id ? getLangfuseTraceUrl(event.trace_id) : null;
   return (
     <Card>
       <CardContent className="flex flex-col gap-3">

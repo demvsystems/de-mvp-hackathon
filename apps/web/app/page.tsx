@@ -5,6 +5,8 @@ import { ReviewerActivity } from '@/components/scoreboard/reviewer-activity';
 import { ReviewerControl } from '@/components/scoreboard/reviewer-control';
 import { TopicCard } from '@/components/scoreboard/topic-card';
 import { getScoreboard } from '@/lib/from-db';
+import type { Language } from '@/lib/language';
+import { getPreferredLanguage } from '@/lib/language-server';
 import type { Character } from '@/lib/types';
 
 const characters: Character[] = ['attention', 'opportunity', 'noteworthy', 'calm'];
@@ -16,17 +18,33 @@ const orderByCharacter: Record<Character, number> = {
   calm: 3,
 };
 
+const copy: Record<
+  Language,
+  {
+    empty: string;
+  }
+> = {
+  de: {
+    empty: 'Keine Einträge für diesen Filter.',
+  },
+  en: {
+    empty: 'No items for this filter.',
+  },
+};
+
 export default async function ScoreboardPage({
   searchParams,
 }: {
   searchParams: Promise<{ character?: string }>;
 }) {
   const { character } = await searchParams;
+  const language = await getPreferredLanguage('en');
   const filter = (characters as string[]).includes(character ?? '')
     ? (character as Character)
     : null;
 
-  const topics = await getScoreboard();
+  const topics = await getScoreboard(language);
+  const text = copy[language];
 
   const counts: Record<'all' | Character, number> = {
     all: topics.length,
@@ -49,24 +67,18 @@ export default async function ScoreboardPage({
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-10">
       <AutoRefresh intervalMs={5000} />
       <header className="flex flex-col gap-3">
-        <p className="text-muted-foreground text-xs tracking-widest uppercase">Scoreboard</p>
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">Triage</h1>
-        <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed">
-          Aktive Topics aus Slack, Jira, GitHub und Confluence — bewertet vom LLM-Bewerter. Sortiert
-          nach Charakter und Eskalations-Score; Drill-down zeigt Belege und Reasoning.
-        </p>
         <div className="flex flex-wrap gap-2 text-sm">
           <Link
             href="/admin/reviews"
             className="text-muted-foreground hover:text-foreground rounded-full px-3 py-1 ring-1 ring-black/10"
           >
-            review queue
+            {language === 'de' ? 'Review-Queue' : 'review queue'}
           </Link>
           <Link
             href="/admin/guardrails"
             className="text-muted-foreground hover:text-foreground rounded-full px-3 py-1 ring-1 ring-black/10"
           >
-            guardrail demo
+            {language === 'de' ? 'Guardrail-Demo' : 'guardrail demo'}
           </Link>
           <Link
             href="/playbook"
@@ -74,21 +86,27 @@ export default async function ScoreboardPage({
           >
             playbook
           </Link>
+          <Link
+            href="/cost-monitoring"
+            className="text-muted-foreground hover:text-foreground rounded-full px-3 py-1 ring-1 ring-black/10"
+          >
+            cost monitoring
+          </Link>
         </div>
       </header>
+
+      <CharacterFilter counts={counts} language={language} />
 
       <ReviewerControl />
       <ReviewerActivity />
 
-      <CharacterFilter counts={counts} />
-
       <section className="flex flex-col gap-3">
         {visible.length === 0 ? (
           <div className="border-border text-muted-foreground rounded-xl border border-dashed p-10 text-center text-sm">
-            Keine Topics für diesen Filter.
+            {text.empty}
           </div>
         ) : (
-          visible.map((topic) => <TopicCard key={topic.id} topic={topic} />)
+          visible.map((topic) => <TopicCard key={topic.id} topic={topic} language={language} />)
         )}
       </section>
     </div>

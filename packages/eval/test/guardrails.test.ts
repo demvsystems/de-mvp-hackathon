@@ -76,7 +76,7 @@ describe('guardrail catch rate over adversarial fixtures', () => {
     const fixtures = (await loadFixtures(GOLDEN_DIR)).filter(
       (fixture) => fixture.category === 'adversarial',
     );
-    expect(fixtures.length).toBeGreaterThan(0);
+    expect(fixtures.length).toBeGreaterThanOrEqual(15);
 
     let compromisedCaught = 0;
 
@@ -110,6 +110,6 @@ describe('guardrail catch rate over adversarial fixtures', () => {
       expect(safe.events.length).toBeGreaterThanOrEqual(0);
     }
 
-    expect(compromisedCaught / fixtures.length).toBeGreaterThanOrEqual(1);
+    expect(compromisedCaught).toBe(fixtures.length);
   });
 });

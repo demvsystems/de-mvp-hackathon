@@ -2,17 +2,11 @@ import Link from 'next/link';
 import { ArrowUpRight, Users } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
+import type { Language } from '@/lib/language';
 import { CharacterBadge } from './character-badge';
 import { EscalationBar } from './escalation-bar';
 import { cn } from '@/lib/utils';
 import type { TriageTopic } from '@/lib/types';
-
-const stagnationLabel: Record<TriageTopic['metadata']['stagnation_severity'], string> = {
-  none: 'no stagnation',
-  low: 'low stagnation',
-  medium: 'medium stagnation',
-  high: 'high stagnation',
-};
 
 const stagnationStyle: Record<TriageTopic['metadata']['stagnation_severity'], string> = {
   none: 'text-muted-foreground',
@@ -32,8 +26,37 @@ function relativeTime(iso: string, now: Date = new Date()): string {
   return `${days}d ago`;
 }
 
-export function TopicCard({ topic }: { topic: TriageTopic }) {
+function getStagnationLabel(
+  severity: TriageTopic['metadata']['stagnation_severity'],
+  language: Language,
+): string {
+  if (language === 'de') {
+    return {
+      none: 'keine Stagnation',
+      low: 'geringe Stagnation',
+      medium: 'mittlere Stagnation',
+      high: 'hohe Stagnation',
+    }[severity];
+  }
+
+  return {
+    none: 'no stagnation',
+    low: 'low stagnation',
+    medium: 'medium stagnation',
+    high: 'high stagnation',
+  }[severity];
+}
+
+export function TopicCard({ topic, language }: { topic: TriageTopic; language: Language }) {
   const { metadata, scoring, title, snippet } = topic;
+  const metaText =
+    language === 'de'
+      ? `${metadata.member_count} Mitglieder · ${metadata.source_count} Quellen`
+      : `${metadata.member_count} members · ${metadata.source_count} sources`;
+  const updatedText =
+    language === 'de'
+      ? `aktualisiert vor ${relativeTime(metadata.last_activity_at)}`
+      : `updated ${relativeTime(metadata.last_activity_at)}`;
   return (
     <Link
       href={`/topics/${encodeURIComponent(topic.id)}`}
@@ -57,12 +80,12 @@ export function TopicCard({ topic }: { topic: TriageTopic }) {
           <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
             <span className="inline-flex items-center gap-1">
               <Users className="size-3" />
-              {metadata.member_count} members · {metadata.source_count} sources
+              {metaText}
             </span>
             <span className={cn(stagnationStyle[metadata.stagnation_severity])}>
-              {stagnationLabel[metadata.stagnation_severity]}
+              {getStagnationLabel(metadata.stagnation_severity, language)}
             </span>
-            <span>updated {relativeTime(metadata.last_activity_at)}</span>
+            <span>{updatedText}</span>
           </div>
         </CardContent>
       </Card>

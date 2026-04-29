@@ -16,7 +16,7 @@ export default async function PlaybookPage() {
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm"
       >
         <ArrowLeft className="size-4" />
-        back to triage
+        back to dashboard
       </Link>
 
       <header className="flex flex-col gap-2">

@@ -323,7 +323,13 @@ describe.skipIf(!liveDeps)('rubric end-to-end (live deps)', () => {
       triggeredBy: 'eval',
     });
 
-    const report = await scoreFixture(happy, result.output, result.metadata.tool_calls, rubric);
+    const report = await scoreFixture(
+      happy,
+      result.output,
+      result.metadata.tool_calls,
+      rubric,
+      result.metadata,
+    );
 
     console.log(JSON.stringify(report, null, 2));
     expect(report.criteria.length).toBe(rubric.criteria.length);

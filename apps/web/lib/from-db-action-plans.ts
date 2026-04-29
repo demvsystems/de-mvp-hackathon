@@ -2,6 +2,7 @@ import 'server-only';
 
 import { db, desc, eq, schema } from '@repo/db';
 import type { ActionPlan } from '@repo/agent/shared';
+import { type Language, translateActionPlan, translateDisplayText } from './language';
 
 export type ActionPlanStatus =
   | 'proposed'
@@ -46,7 +47,10 @@ function asStatus(value: string | null | undefined): ActionPlanStatus {
     : 'proposed';
 }
 
-export async function listActionPlansForTopic(topicId: string): Promise<ActionPlanRow[]> {
+export async function listActionPlansForTopic(
+  topicId: string,
+  language: Language = 'de',
+): Promise<ActionPlanRow[]> {
   const rows = await db
     .select()
     .from(schema.topicActionPlans)
@@ -58,15 +62,15 @@ export async function listActionPlansForTopic(topicId: string): Promise<ActionPl
     session_id: r.sessionId,
     supersedes_id: r.supersedesId,
     status: asStatus(r.status),
-    plan: r.plan as ActionPlan,
-    rationale: r.rationale,
+    plan: translateActionPlan(r.plan as ActionPlan, language),
+    rationale: translateDisplayText(r.rationale, language),
     proposed_at: r.proposedAt.toISOString(),
     decision_kind: r.decisionKind,
     decision_at: r.decisionAt?.toISOString() ?? null,
     decision_by: r.decisionBy,
-    modification_feedback: r.modificationFeedback,
+    modification_feedback: translateDisplayText(r.modificationFeedback, language),
     executed_at: r.executedAt?.toISOString() ?? null,
     created_records: (r.createdRecords as string[] | null) ?? null,
-    error: r.error,
+    error: translateDisplayText(r.error, language),
   }));
 }

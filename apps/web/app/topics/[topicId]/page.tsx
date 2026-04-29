@@ -10,6 +10,7 @@ import { FeedbackWidget } from '@/components/scoreboard/feedback-widget';
 import { TopicMemberRow } from '@/components/scoreboard/topic-member-row';
 import { getTopic } from '@/lib/from-db';
 import { listActionPlansForTopic } from '@/lib/from-db-action-plans';
+import { getPreferredLanguage } from '@/lib/language-server';
 import type { ActivityTrend } from '@/lib/types';
 
 const trendIcon: Record<ActivityTrend, typeof TrendingUp> = {
@@ -37,9 +38,10 @@ export default async function TopicDetailPage({
 }) {
   const { topicId } = await params;
   const decodedId = decodeURIComponent(topicId);
+  const language = await getPreferredLanguage('en');
   const [topic, actionPlans] = await Promise.all([
-    getTopic(decodedId),
-    listActionPlansForTopic(decodedId),
+    getTopic(decodedId, language),
+    listActionPlansForTopic(decodedId, language),
   ]);
   if (!topic) notFound();
 
@@ -53,7 +55,7 @@ export default async function TopicDetailPage({
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm"
       >
         <ArrowLeft className="size-4" />
-        back to triage
+        {language === 'de' ? 'zurück zum Dashboard' : 'back to dashboard'}
       </Link>
 
       <header className="flex flex-col gap-4">
@@ -64,7 +66,8 @@ export default async function TopicDetailPage({
             character={topic.latest_assessment.character}
           />
           <span className="text-muted-foreground text-xs">
-            assessed {formatDateTime(topic.latest_assessment.assessed_at)}
+            {language === 'de' ? 'bewertet' : 'assessed'}{' '}
+            {formatDateTime(topic.latest_assessment.assessed_at)}
           </span>
         </div>
         <h1 className="font-heading text-3xl font-semibold tracking-tight">{topic.label}</h1>
@@ -78,33 +81,65 @@ export default async function TopicDetailPage({
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
-          label="Members"
+          label={language === 'de' ? 'Mitglieder' : 'Members'}
           value={`${topic.activity.member_count}`}
-          hint={`${topic.activity.source_count} sources`}
+          hint={
+            language === 'de'
+              ? `${topic.activity.source_count} Quellen`
+              : `${topic.activity.source_count} sources`
+          }
         />
         <Stat
-          label="Velocity 24h"
+          label={language === 'de' ? 'Tempo 24h' : 'Velocity 24h'}
           value={`${topic.activity.velocity_24h}`}
-          hint={`7d avg ${topic.activity.velocity_7d_avg.toFixed(1)}/day`}
+          hint={
+            language === 'de'
+              ? `7d Schnitt ${topic.activity.velocity_7d_avg.toFixed(1)}/Tag`
+              : `7d avg ${topic.activity.velocity_7d_avg.toFixed(1)}/day`
+          }
         />
         <Stat
           label="Trend"
           value={
             <span className="inline-flex items-center gap-1.5">
               <TrendIcon className="size-4" />
-              {trendLabel[topic.activity.trend]}
+              {language === 'de'
+                ? {
+                    growing: 'steigend',
+                    stable: 'stabil',
+                    declining: 'rückläufig',
+                    dormant: 'inaktiv',
+                  }[topic.activity.trend]
+                : trendLabel[topic.activity.trend]}
             </span>
           }
-          hint={`last activity ${formatDateTime(topic.activity.last_activity_at)}`}
+          hint={
+            language === 'de'
+              ? `letzte Aktivität ${formatDateTime(topic.activity.last_activity_at)}`
+              : `last activity ${formatDateTime(topic.activity.last_activity_at)}`
+          }
         />
         <Stat
           label="Stagnation"
-          value={topic.stagnation.severity}
-          hint={`${topic.stagnation.signal_count} signals`}
+          value={
+            language === 'de'
+              ? {
+                  none: 'keine',
+                  low: 'gering',
+                  medium: 'mittel',
+                  high: 'hoch',
+                }[topic.stagnation.severity]
+              : topic.stagnation.severity
+          }
+          hint={
+            language === 'de'
+              ? `${topic.stagnation.signal_count} Signale`
+              : `${topic.stagnation.signal_count} signals`
+          }
         />
       </section>
 
-      {actionPlans.length > 0 ? <ActionPlanCard plans={actionPlans} /> : null}
+      {actionPlans.length > 0 ? <ActionPlanCard plans={actionPlans} language={language} /> : null}
 
       {topic.latest_assessment.assessor ? (
         <FeedbackWidget
@@ -120,7 +155,9 @@ export default async function TopicDetailPage({
       <section className="grid gap-6 lg:grid-cols-[1fr_minmax(280px,360px)]">
         <Card>
           <CardContent className="flex flex-col gap-4">
-            <h2 className="font-heading text-base font-medium">Reasoning</h2>
+            <h2 className="font-heading text-base font-medium">
+              {language === 'de' ? 'Begründung' : 'Reasoning'}
+            </h2>
             {reasoning.tldr ? (
               <div className="bg-muted/50 rounded-lg px-3 py-2">
                 <h3 className="text-muted-foreground mb-1 text-xs tracking-wide uppercase">
@@ -132,7 +169,9 @@ export default async function TopicDetailPage({
             <p className="text-sm leading-relaxed">{reasoning.sentiment_aggregate}</p>
 
             <div className="flex flex-col gap-2">
-              <h3 className="text-muted-foreground text-xs tracking-wide uppercase">Key signals</h3>
+              <h3 className="text-muted-foreground text-xs tracking-wide uppercase">
+                {language === 'de' ? 'Kernsignale' : 'Key signals'}
+              </h3>
               <ul className="flex flex-col gap-1.5 text-sm">
                 {reasoning.key_signals.map((s, i) => (
                   <li key={i} className="flex gap-2 leading-relaxed">
@@ -146,7 +185,7 @@ export default async function TopicDetailPage({
             {reasoning.key_artifacts.length > 0 ? (
               <div className="flex flex-col gap-2">
                 <h3 className="text-muted-foreground text-xs tracking-wide uppercase">
-                  Key artifacts
+                  {language === 'de' ? 'Wichtige Artefakte' : 'Key artifacts'}
                 </h3>
                 <ul className="flex flex-wrap gap-1.5">
                   {reasoning.key_artifacts.map((id) => (
@@ -171,7 +210,9 @@ export default async function TopicDetailPage({
 
         <Card>
           <CardContent className="flex flex-col gap-3">
-            <h2 className="font-heading text-base font-medium">Assessment history</h2>
+            <h2 className="font-heading text-base font-medium">
+              {language === 'de' ? 'Bewertungsverlauf' : 'Assessment history'}
+            </h2>
             <ol className="flex flex-col gap-3">
               {topic.history.map((h) => (
                 <li key={h.assessed_at} className="flex flex-col gap-1.5">
@@ -196,9 +237,13 @@ export default async function TopicDetailPage({
 
       <section className="flex flex-col gap-3">
         <div className="flex items-baseline justify-between">
-          <h2 className="font-heading text-base font-medium">Members ({topic.members.length})</h2>
+          <h2 className="font-heading text-base font-medium">
+            {language === 'de' ? 'Mitglieder' : 'Members'} ({topic.members.length})
+          </h2>
           <span className="text-muted-foreground text-xs">
-            top members loaded into the assessor prompt
+            {language === 'de'
+              ? 'Top-Mitglieder im Assessor-Prompt'
+              : 'top members loaded into the assessor prompt'}
           </span>
         </div>
         <Card>

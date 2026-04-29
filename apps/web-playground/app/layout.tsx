@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Datenkrake — Scoreboard',
+  title: 'DataClaw — Scoreboard',
   description: 'Active topics across Slack, Jira, GitHub and Confluence.',
 };
 
@@ -40,9 +40,9 @@ export default function RootLayout({
           <header className="border-border/60 bg-background/80 sticky top-0 z-10 border-b backdrop-blur">
             <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-6 py-3">
               <span className="bg-foreground text-background inline-flex size-6 items-center justify-center rounded-md font-mono text-[11px] font-bold">
-                DK
+                DC
               </span>
-              <span className="font-heading text-sm font-medium">Datenkrake</span>
+              <span className="font-heading text-sm font-medium">DataClaw</span>
               <span className="text-muted-foreground text-xs">/ scoreboard</span>
             </div>
           </header>

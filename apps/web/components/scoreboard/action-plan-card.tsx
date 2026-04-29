@@ -4,26 +4,18 @@ import { useState, useTransition } from 'react';
 import { Check, Edit2, X, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { approveActionPlan, modifyActionPlan, rejectActionPlan } from '@/lib/actions/action-plans';
+import type { Language } from '@/lib/language';
 import type { ActionPlanRow } from '@/lib/from-db-action-plans';
 import { cn } from '@/lib/utils';
 
 interface Props {
   plans: ActionPlanRow[];
+  language: Language;
 }
-
-const STATUS_LABEL: Record<ActionPlanRow['status'], string> = {
-  proposed: 'Vorschlag',
-  approved: 'Genehmigt',
-  rejected: 'Abgelehnt',
-  superseded: 'Überarbeitet',
-  executing: 'Wird ausgeführt',
-  executed: 'Ausgeführt',
-  failed: 'Fehlgeschlagen',
-};
 
 const STATUS_TONE: Record<ActionPlanRow['status'], string> = {
   proposed: 'border-blue-500/50 bg-blue-500/10 text-blue-700 dark:text-blue-300',
@@ -39,28 +31,62 @@ function formatDateTime(iso: string): string {
   return new Date(iso).toISOString().slice(0, 16).replace('T', ' ') + 'Z';
 }
 
-export function ActionPlanCard({ plans }: Props) {
+function getStatusLabel(status: ActionPlanRow['status'], language: Language): string {
+  if (language === 'de') {
+    return {
+      proposed: 'Vorschlag',
+      approved: 'Genehmigt',
+      rejected: 'Abgelehnt',
+      superseded: 'Überarbeitet',
+      executing: 'Wird ausgeführt',
+      executed: 'Ausgeführt',
+      failed: 'Fehlgeschlagen',
+    }[status];
+  }
+
+  return {
+    proposed: 'Proposed',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    superseded: 'Superseded',
+    executing: 'Executing',
+    executed: 'Executed',
+    failed: 'Failed',
+  }[status];
+}
+
+export function ActionPlanCard({ plans, language }: Props) {
   if (plans.length === 0) return null;
   const active = plans[0]!;
   const history = plans.slice(1);
+  const proposedText = language === 'de' ? 'vorgeschlagen' : 'proposed';
 
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between">
         <h2 className="font-heading text-base font-medium">Action Plan</h2>
         <span className="text-muted-foreground text-xs">
-          {STATUS_LABEL[active.status]} · vorgeschlagen {formatDateTime(active.proposed_at)}
+          {getStatusLabel(active.status, language)} · {proposedText}{' '}
+          {formatDateTime(active.proposed_at)}
         </span>
       </div>
 
-      <PlanCard plan={active} interactive={active.status === 'proposed'} />
+      <PlanCard plan={active} interactive={active.status === 'proposed'} language={language} />
 
-      {history.length > 0 ? <PlanHistory history={history} /> : null}
+      {history.length > 0 ? <PlanHistory history={history} language={language} /> : null}
     </section>
   );
 }
 
-function PlanCard({ plan, interactive }: { plan: ActionPlanRow; interactive: boolean }) {
+function PlanCard({
+  plan,
+  interactive,
+  language,
+}: {
+  plan: ActionPlanRow;
+  interactive: boolean;
+  language: Language;
+}) {
   const [pending, startTransition] = useTransition();
   const [showModifyBox, setShowModifyBox] = useState(false);
   const [feedback, setFeedback] = useState('');
@@ -68,28 +94,39 @@ function PlanCard({ plan, interactive }: { plan: ActionPlanRow; interactive: boo
   const onApprove = () => {
     startTransition(async () => {
       const r = await approveActionPlan({ plan_id: plan.id });
-      if (r.ok) toast.success('Plan genehmigt — Executor läuft.');
-      else toast.error(r.error ?? 'approve failed');
+      if (r.ok) {
+        toast.success(
+          language === 'de'
+            ? 'Plan genehmigt — Executor läuft.'
+            : 'Plan approved; executor started.',
+        );
+      } else {
+        toast.error(r.error ?? 'approve failed');
+      }
     });
   };
 
   const onReject = () => {
     startTransition(async () => {
       const r = await rejectActionPlan({ plan_id: plan.id });
-      if (r.ok) toast.success('Plan abgelehnt.');
+      if (r.ok) toast.success(language === 'de' ? 'Plan abgelehnt.' : 'Plan rejected.');
       else toast.error(r.error ?? 'reject failed');
     });
   };
 
   const onModify = () => {
     if (feedback.trim().length === 0) {
-      toast.error('Bitte Feedback eingeben.');
+      toast.error(language === 'de' ? 'Bitte Feedback eingeben.' : 'Please enter feedback.');
       return;
     }
     startTransition(async () => {
       const r = await modifyActionPlan({ plan_id: plan.id, feedback: feedback.trim() });
       if (r.ok) {
-        toast.success('Modifikation angefordert — Reviewer überarbeitet.');
+        toast.success(
+          language === 'de'
+            ? 'Modifikation angefordert — Reviewer überarbeitet.'
+            : 'Revision requested; reviewer is updating the plan.',
+        );
         setShowModifyBox(false);
         setFeedback('');
       } else {
@@ -103,11 +140,12 @@ function PlanCard({ plan, interactive }: { plan: ActionPlanRow; interactive: boo
       <CardContent className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <Badge className={cn('rounded-md border px-2 py-0.5', STATUS_TONE[plan.status])}>
-            {STATUS_LABEL[plan.status]}
+            {getStatusLabel(plan.status, language)}
           </Badge>
           {plan.supersedes_id ? (
             <span className="text-muted-foreground text-xs">
-              überarbeitet aus {plan.supersedes_id.slice(0, 8)}
+              {language === 'de' ? 'überarbeitet aus' : 'supersedes'}{' '}
+              {plan.supersedes_id.slice(0, 8)}
             </span>
           ) : null}
           <code className="text-muted-foreground/70 ml-auto font-mono text-[11px]">
@@ -138,7 +176,9 @@ function PlanCard({ plan, interactive }: { plan: ActionPlanRow; interactive: boo
 
         {plan.plan.cross_references.length > 0 ? (
           <div className="text-muted-foreground flex flex-col gap-1 text-xs">
-            <span className="tracking-wide uppercase">Cross-References</span>
+            <span className="tracking-wide uppercase">
+              {language === 'de' ? 'Querverweise' : 'Cross-references'}
+            </span>
             <ul className="flex flex-col gap-0.5">
               {plan.plan.cross_references.map((cr, i) => (
                 <li key={i} className="font-mono">
@@ -151,7 +191,9 @@ function PlanCard({ plan, interactive }: { plan: ActionPlanRow; interactive: boo
 
         {plan.status === 'executed' && plan.created_records ? (
           <div className="text-muted-foreground flex flex-col gap-1 text-xs">
-            <span className="tracking-wide uppercase">Erstellte Records</span>
+            <span className="tracking-wide uppercase">
+              {language === 'de' ? 'Erstellte Records' : 'Created records'}
+            </span>
             <ul className="flex flex-wrap gap-1.5">
               {plan.created_records.map((id) => (
                 <li
@@ -181,7 +223,7 @@ function PlanCard({ plan, interactive }: { plan: ActionPlanRow; interactive: boo
                   ) : (
                     <Check className="mr-1 size-3.5" />
                   )}
-                  Approve
+                  {language === 'de' ? 'Genehmigen' : 'Approve'}
                 </Button>
                 <Button
                   onClick={() => setShowModifyBox(true)}
@@ -190,7 +232,7 @@ function PlanCard({ plan, interactive }: { plan: ActionPlanRow; interactive: boo
                   variant="outline"
                 >
                   <Edit2 className="mr-1 size-3.5" />
-                  Modify
+                  {language === 'de' ? 'Überarbeiten' : 'Modify'}
                 </Button>
                 <Button
                   onClick={onReject}
@@ -200,7 +242,7 @@ function PlanCard({ plan, interactive }: { plan: ActionPlanRow; interactive: boo
                   className="text-muted-foreground"
                 >
                   <X className="mr-1 size-3.5" />
-                  Reject
+                  {language === 'de' ? 'Ablehnen' : 'Reject'}
                 </Button>
               </div>
             ) : (
@@ -208,7 +250,11 @@ function PlanCard({ plan, interactive }: { plan: ActionPlanRow; interactive: boo
                 <textarea
                   value={feedback}
                   onChange={(e) => setFeedback(e.target.value)}
-                  placeholder="Was soll am Plan geändert werden? (z.B. anderen Slack-Channel, Body-Text anpassen, Aktion entfernen…)"
+                  placeholder={
+                    language === 'de'
+                      ? 'Was soll am Plan geändert werden? (z.B. anderen Slack-Channel, Body-Text anpassen, Aktion entfernen...)'
+                      : 'What should change in the plan? For example: different Slack channel, adjust the message body, remove an action...'
+                  }
                   rows={3}
                   className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
                   autoFocus
@@ -220,7 +266,7 @@ function PlanCard({ plan, interactive }: { plan: ActionPlanRow; interactive: boo
                     ) : (
                       <Edit2 className="mr-1 size-3.5" />
                     )}
-                    Plan überarbeiten lassen
+                    {language === 'de' ? 'Plan überarbeiten lassen' : 'Request revision'}
                   </Button>
                   <Button
                     onClick={() => {
@@ -231,7 +277,7 @@ function PlanCard({ plan, interactive }: { plan: ActionPlanRow; interactive: boo
                     size="sm"
                     variant="ghost"
                   >
-                    Abbrechen
+                    {language === 'de' ? 'Abbrechen' : 'Cancel'}
                   </Button>
                 </div>
               </div>
@@ -243,7 +289,7 @@ function PlanCard({ plan, interactive }: { plan: ActionPlanRow; interactive: boo
   );
 }
 
-function PlanHistory({ history }: { history: ActionPlanRow[] }) {
+function PlanHistory({ history, language }: { history: ActionPlanRow[]; language: Language }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="flex flex-col gap-2">
@@ -252,7 +298,7 @@ function PlanHistory({ history }: { history: ActionPlanRow[] }) {
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs"
       >
         {open ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
-        Verlauf ({history.length})
+        {language === 'de' ? 'Verlauf' : 'History'} ({history.length})
       </button>
       {open ? (
         <ul className="flex flex-col gap-2">
@@ -262,7 +308,7 @@ function PlanHistory({ history }: { history: ActionPlanRow[] }) {
                 <CardContent className="flex flex-col gap-2">
                   <div className="flex items-center gap-2">
                     <Badge className={cn('rounded-md border px-2 py-0.5', STATUS_TONE[p.status])}>
-                      {STATUS_LABEL[p.status]}
+                      {getStatusLabel(p.status, language)}
                     </Badge>
                     <span className="text-muted-foreground text-xs">
                       {formatDateTime(p.proposed_at)}
@@ -276,7 +322,8 @@ function PlanHistory({ history }: { history: ActionPlanRow[] }) {
                   ) : null}
                   {p.modification_feedback ? (
                     <p className="border-l-2 border-l-amber-500/50 pl-3 text-sm leading-relaxed text-amber-700 italic dark:text-amber-300">
-                      User-Feedback: {p.modification_feedback}
+                      {language === 'de' ? 'User-Feedback' : 'User feedback'}:{' '}
+                      {p.modification_feedback}
                     </p>
                   ) : null}
                   {p.error ? (

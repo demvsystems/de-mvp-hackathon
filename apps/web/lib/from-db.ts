@@ -10,6 +10,12 @@ import type {
   TopicMember,
   TriageTopic,
 } from './types';
+import {
+  type Language,
+  translateReasoning,
+  translateTriageTopic,
+  translateTopicContext,
+} from './language';
 
 const characters: Character[] = ['attention', 'opportunity', 'noteworthy', 'calm'];
 const trends: ActivityTrend[] = ['growing', 'stable', 'declining', 'dormant'];
@@ -170,7 +176,7 @@ function asReasoning(value: unknown): AssessmentReasoning {
   };
 }
 
-export async function getScoreboard(): Promise<TriageTopic[]> {
+export async function getScoreboard(language: Language = 'de'): Promise<TriageTopic[]> {
   const rows = await read.listActiveTopics({ recent_assessments_limit: 1 });
   const out: TriageTopic[] = [];
   for (const { topic, recent_assessments } of rows) {
@@ -197,10 +203,13 @@ export async function getScoreboard(): Promise<TriageTopic[]> {
       },
     });
   }
-  return out;
+  return out.map((topic) => translateTriageTopic(topic, language));
 }
 
-export async function getTopic(id: string): Promise<TopicContext | null> {
+export async function getTopic(
+  id: string,
+  language: Language = 'de',
+): Promise<TopicContext | null> {
   const [topicRow] = await read.getTopics({ ids: [id], recent_assessments_limit: 10 });
   if (!topicRow) return null;
   const { topic, recent_assessments } = topicRow;
@@ -217,46 +226,52 @@ export async function getTopic(id: string): Promise<TopicContext | null> {
     .map((r): TopicMember | null => toMember(r))
     .filter((m): m is TopicMember => m !== null);
 
-  const latestReasoning = asReasoning(latest?.reasoning);
+  const latestReasoning = translateReasoning(asReasoning(latest?.reasoning), language);
   const lastActivity = (topic.lastActivityAt ?? topic.discoveredAt).toISOString();
 
-  return {
-    id: topic.id,
-    label: topic.label ?? topic.id,
-    description: topic.description ?? null,
-    status: (topic.status as TopicContext['status']) ?? 'active',
-    discovered_at: topic.discoveredAt.toISOString(),
-    discovered_by: topic.discoveredBy,
-    activity: {
-      member_count: topic.memberCount,
-      source_count: topic.sourceCount,
-      unique_authors_7d: topic.uniqueAuthors7d,
-      velocity_24h: topic.velocity24h ?? 0,
-      velocity_7d_avg: topic.velocity7dAvg ?? 0,
-      trend: asTrend(topic.activityTrend),
-      last_activity_at: lastActivity,
+  return translateTopicContext(
+    {
+      id: topic.id,
+      label: topic.label ?? topic.id,
+      description: topic.description ?? null,
+      status: (topic.status as TopicContext['status']) ?? 'active',
+      discovered_at: topic.discoveredAt.toISOString(),
+      discovered_by: topic.discoveredBy,
+      activity: {
+        member_count: topic.memberCount,
+        source_count: topic.sourceCount,
+        unique_authors_7d: topic.uniqueAuthors7d,
+        velocity_24h: topic.velocity24h ?? 0,
+        velocity_7d_avg: topic.velocity7dAvg ?? 0,
+        trend: asTrend(topic.activityTrend),
+        last_activity_at: lastActivity,
+      },
+      stagnation: {
+        severity: asSeverity(topic.stagnationSeverity),
+        signal_count: topic.stagnationSignalCount,
+      },
+      latest_assessment: {
+        character: asCharacter(latest?.character),
+        escalation_score: latest?.escalationScore ?? 0,
+        assessed_at: latest?.assessedAt.toISOString() ?? topic.discoveredAt.toISOString(),
+        assessor: latest?.assessor ?? '',
+        trace_id: latest?.traceId ?? null,
+        reasoning: latestReasoning,
+      },
+      members,
+      history: recent_assessments.map((a) => {
+        const r = asReasoning(a.reasoning);
+        const translatedReasoning = translateReasoning(r, language);
+        return {
+          assessed_at: a.assessedAt.toISOString(),
+          character: asCharacter(a.character),
+          escalation_score: a.escalationScore,
+          brief_reasoning: (
+            translatedReasoning.tldr ?? translatedReasoning.sentiment_aggregate
+          ).slice(0, 240),
+        };
+      }),
     },
-    stagnation: {
-      severity: asSeverity(topic.stagnationSeverity),
-      signal_count: topic.stagnationSignalCount,
-    },
-    latest_assessment: {
-      character: asCharacter(latest?.character),
-      escalation_score: latest?.escalationScore ?? 0,
-      assessed_at: latest?.assessedAt.toISOString() ?? topic.discoveredAt.toISOString(),
-      assessor: latest?.assessor ?? '',
-      trace_id: latest?.traceId ?? null,
-      reasoning: latestReasoning,
-    },
-    members,
-    history: recent_assessments.map((a) => {
-      const r = asReasoning(a.reasoning);
-      return {
-        assessed_at: a.assessedAt.toISOString(),
-        character: asCharacter(a.character),
-        escalation_score: a.escalationScore,
-        brief_reasoning: (r.tldr ?? r.sentiment_aggregate).slice(0, 240),
-      };
-    }),
-  };
+    language,
+  );
 }
