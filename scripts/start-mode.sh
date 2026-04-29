@@ -17,6 +17,23 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
+# `psql` is required to bootstrap the per-mode database. On macOS, `brew install
+# libpq` keeps it keg-only, so add the common install paths to PATH if the
+# binary isn't already discoverable.
+if ! command -v psql >/dev/null 2>&1; then
+  for cand in /opt/homebrew/opt/libpq/bin /usr/local/opt/libpq/bin; do
+    if [ -x "$cand/psql" ]; then
+      PATH="$cand:$PATH"
+      export PATH
+      break
+    fi
+  done
+fi
+if ! command -v psql >/dev/null 2>&1; then
+  echo "psql not found on PATH. Install via: brew install libpq" >&2
+  exit 1
+fi
+
 set -a
 . ./.env
 set +a
