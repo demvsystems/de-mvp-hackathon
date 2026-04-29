@@ -14,6 +14,7 @@
   "dependencies": {
     "@repo/agent": "workspace:*",
     "@repo/connectors": "workspace:*",
+    "@repo/db": "workspace:*",
     "@repo/embedder": "workspace:*",
     "@repo/materializer": "workspace:*",
     "@repo/mention-extractor": "workspace:*",

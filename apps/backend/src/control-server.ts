@@ -29,6 +29,21 @@ async function handle(
     return;
   }
 
+  if (
+    req.method === 'POST' &&
+    parts.length === 2 &&
+    parts[0] === 'reviewer' &&
+    parts[1] === 'reset-assessments'
+  ) {
+    try {
+      const result = await resetReviewerAssessments();
+      sendJson(res, 200, result);
+    } catch (err) {
+      sendJson(res, 500, { error: err instanceof Error ? err.message : String(err) });
+    }
+    return;
+  }
+
   if (req.method === 'POST' && parts.length === 3 && parts[0] === 'workers') {
     const [, name, action] = parts as [string, string, string];
     if (!ACTIONS.has(action)) {
@@ -60,4 +75,54 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.statusCode = status;
   res.setHeader('content-type', 'application/json');
   res.end(JSON.stringify(body));
+}
+
+interface ResetReviewerResult {
+  deleted_assessments: number;
+  retriggered_topics: number;
+}
+
+// Wipe all topic_assessments and re-publish TopicCreated for every active
+// topic so the reviewer (if running) re-evaluates them. Lazy-imports keep
+// `--workers connectors`-style runs from pulling in DATABASE_URL.
+async function resetReviewerAssessments(): Promise<ResetReviewerResult> {
+  const [{ sql }, { publish, TopicCreated }] = await Promise.all([
+    import('@repo/db'),
+    import('@repo/messaging'),
+  ]);
+
+  const topics = await sql<
+    { id: string; discovered_by: string; member_count: number }[]
+  >`SELECT id, discovered_by, member_count FROM topics WHERE status = 'active'`;
+
+  const deleted = await sql`DELETE FROM topic_assessments`;
+  const deletedCount = deleted.count;
+
+  let retriggered = 0;
+  for (const t of topics) {
+    const members = await sql<{ from_id: string }[]>`
+      SELECT from_id FROM edges WHERE to_id = ${t.id} AND type = 'discusses'
+    `;
+    await publish(TopicCreated, {
+      source: 'reset:reviewer',
+      occurred_at: new Date().toISOString(),
+      subject_id: t.id,
+      correlation_id: t.id,
+      payload: {
+        id: t.id,
+        status: 'active',
+        discovered_by: t.discovered_by,
+        initial_centroid_summary: {
+          sample_record_ids: members.map((m: { from_id: string }) => m.from_id),
+          cluster_size: t.member_count,
+          intra_cluster_distance_avg: 0,
+        },
+        centroid_body_only: null,
+        member_count_body_only: t.member_count,
+      },
+    });
+    retriggered += 1;
+  }
+
+  return { deleted_assessments: deletedCount, retriggered_topics: retriggered };
 }

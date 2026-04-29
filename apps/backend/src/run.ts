@@ -88,16 +88,19 @@ async function main(): Promise<void> {
     allowPositionals: true,
   });
 
-  // Default: everything except the embedder (Azure cost). Pass `--workers a,b`
-  // to override; pass `--workers ''` to start nothing and toggle via the admin
-  // dashboard.
+  // Default: everything except embedder (Azure cost), topic-discovery
+  // (replaced by hand-seeded gold-standard topics — see
+  // scripts/preseed-expected-topics.ts), and reviewer (started manually from
+  // the admin dashboard so it's obvious when it's processing / pausable).
+  // Pass `--workers a,b` to override; pass `--workers ''` to start nothing.
+  const AUTOSTART_EXCLUDE = new Set(['embedder', 'topic-discovery', 'reviewer']);
   const autoStart =
     values.workers !== undefined
       ? values.workers
           .split(',')
           .map((w) => w.trim())
           .filter(Boolean)
-      : ALL_WORKERS.filter((w) => w !== 'embedder');
+      : ALL_WORKERS.filter((w) => !AUTOSTART_EXCLUDE.has(w));
   for (const w of autoStart) {
     if (!ALL_WORKERS.includes(w)) {
       console.error(`unknown worker: ${w}. available: ${ALL_WORKERS.join(', ')}`);

@@ -50,6 +50,9 @@ importers:
       '@repo/connectors':
         specifier: workspace:*
         version: link:../../packages/connectors
+      '@repo/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@repo/embedder':
         specifier: workspace:*
         version: link:../../packages/embedder
