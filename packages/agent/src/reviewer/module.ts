@@ -1,3 +1,4 @@
+import { sql } from '@repo/db';
 import {
   publish,
   TopicAssessmentCreated,
@@ -10,13 +11,35 @@ import {
 import { reviewerAgent } from './agent';
 import { ASSESSOR_ID } from './output-schema';
 
+async function topicExists(topicId: string): Promise<boolean> {
+  const rows = await sql<{ id: string }[]>`
+    SELECT id FROM topics WHERE id = ${topicId} AND status = 'active' LIMIT 1
+  `;
+  return rows.length > 0;
+}
+
 const REVIEWER_FILTER_SUBJECT = process.env['LLM_REVIEWER_FILTER'] ?? 'events.topic.>';
+
+// Minimum wall-clock spacing between review *starts*. Keeps LLM rate sane and
+// makes the dashboard's review activity visible at human speed during demos.
+// Override via env if needed.
+const REVIEWER_MIN_INTERVAL_MS = Number(process.env['REVIEWER_MIN_INTERVAL_MS'] ?? 10_000);
+
+let nextSlotAt = 0;
+async function reserveReviewSlot(): Promise<void> {
+  const now = Date.now();
+  const startAt = Math.max(now, nextSlotAt);
+  nextSlotAt = startAt + REVIEWER_MIN_INTERVAL_MS;
+  const wait = startAt - now;
+  if (wait > 0) await new Promise<void>((r) => setTimeout(r, wait));
+}
 
 async function reviewAndPublish(
   topicId: string,
   ctx: MessageContext,
   triggeredBy: string,
 ): Promise<void> {
+  await reserveReviewSlot();
   const startedAt = Date.now();
   console.log(
     JSON.stringify({
@@ -87,9 +110,31 @@ export const agentReviewerModule: {
   register(sub) {
     sub
       .on(TopicCreated, async (payload, ctx) => {
+        if (!(await topicExists(payload.id))) {
+          console.log(
+            JSON.stringify({
+              msg: 'reviewer skip',
+              reason: 'topic not in DB',
+              topic_id: payload.id,
+              event_id: ctx.envelope.event_id,
+            }),
+          );
+          return;
+        }
         await reviewAndPublish(payload.id, ctx, TopicCreated.event_type);
       })
       .on(TopicUpdated, async (payload, ctx) => {
+        if (!(await topicExists(payload.id))) {
+          console.log(
+            JSON.stringify({
+              msg: 'reviewer skip',
+              reason: 'topic not in DB',
+              topic_id: payload.id,
+              event_id: ctx.envelope.event_id,
+            }),
+          );
+          return;
+        }
         await reviewAndPublish(payload.id, ctx, TopicUpdated.event_type);
       });
   },
