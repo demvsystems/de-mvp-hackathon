@@ -281,8 +281,8 @@ async function main(): Promise<void> {
           cluster_size: c.resolved.length,
           intra_cluster_distance_avg: 0,
         },
-        centroid_body_only: null,
-        member_count_body_only: c.resolved.length,
+        centroid: null,
+        member_count: c.resolved.length,
       },
     });
     console.log(`  ${c.topic_id}  seq=${ack.seq}  duplicate=${ack.duplicate}`);

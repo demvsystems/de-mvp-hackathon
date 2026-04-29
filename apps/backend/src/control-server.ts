@@ -118,8 +118,8 @@ async function resetReviewerAssessments(): Promise<ResetReviewerResult> {
           cluster_size: t.member_count,
           intra_cluster_distance_avg: 0,
         },
-        centroid_body_only: null,
-        member_count_body_only: t.member_count,
+        centroid: null,
+        member_count: t.member_count,
       },
     });
     retriggered += 1;
