@@ -72,6 +72,12 @@ const REVIEWER_FILTER_SUBJECT = process.env['LLM_REVIEWER_FILTER'] ?? 'events.to
 // Override via env if needed.
 const REVIEWER_MIN_INTERVAL_MS = Number(process.env['REVIEWER_MIN_INTERVAL_MS'] ?? 10_000);
 
+// Per-topic trailing-edge linger: first event for a topic schedules a review
+// after this delay; further events for the same topic during the wait are
+// coalesced into the pending run. The agent reads fresh state at fire time,
+// so the latest changes are captured.
+const REVIEWER_TOPIC_LINGER_MS = Number(process.env['REVIEWER_TOPIC_LINGER_MS'] ?? 60_000);
+
 let nextSlotAt = 0;
 async function reserveReviewSlot(): Promise<void> {
   const now = Date.now();
@@ -79,6 +85,26 @@ async function reserveReviewSlot(): Promise<void> {
   nextSlotAt = startAt + REVIEWER_MIN_INTERVAL_MS;
   const wait = startAt - now;
   if (wait > 0) await new Promise<void>((r) => setTimeout(r, wait));
+}
+
+const pendingReviews = new Map<string, NodeJS.Timeout>();
+function scheduleReview(topicId: string, ctx: MessageContext, triggeredBy: string): boolean {
+  if (pendingReviews.has(topicId)) return false;
+  const timer = setTimeout(() => {
+    pendingReviews.delete(topicId);
+    reviewAndPublish(topicId, ctx, triggeredBy).catch((err) => {
+      console.error(
+        JSON.stringify({
+          msg: 'reviewer scheduled run failed',
+          topic_id: topicId,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    });
+  }, REVIEWER_TOPIC_LINGER_MS);
+  timer.unref();
+  pendingReviews.set(topicId, timer);
+  return true;
 }
 
 function unique(values: readonly string[]): string[] {
@@ -324,6 +350,30 @@ async function reviewAndPublish(
   ctx: MessageContext,
   triggeredBy: string,
 ): Promise<void> {
+  const rows = await sql<{ status: string; member_count: number }[]>`
+    SELECT status, member_count FROM topics WHERE id = ${topicId} LIMIT 1
+  `;
+  const row = rows[0];
+  const skipReason = !row
+    ? 'topic not in DB'
+    : row.status !== 'active'
+      ? `status=${row.status}`
+      : row.member_count <= 1
+        ? `too few members (${row.member_count})`
+        : null;
+  if (skipReason !== null) {
+    console.log(
+      JSON.stringify({
+        msg: 'reviewer skip',
+        reason: skipReason,
+        topic_id: topicId,
+        triggered_by: triggeredBy,
+        causation_event_id: ctx.envelope.event_id,
+      }),
+    );
+    return;
+  }
+
   await reserveReviewSlot();
   console.log(
     JSON.stringify({
@@ -475,12 +525,30 @@ export const agentReviewerModule: {
     sub
       .on(TopicCreated, async (payload, ctx) => {
         if (!(await topicExists(payload.id))) return;
-        await reviewAndPublish(payload.id, ctx, TopicCreated.event_type);
+        const scheduled = scheduleReview(payload.id, ctx, TopicCreated.event_type);
+        console.log(
+          JSON.stringify({
+            msg: scheduled ? 'reviewer scheduled' : 'reviewer coalesced',
+            topic_id: payload.id,
+            triggered_by: TopicCreated.event_type,
+            ...(scheduled ? { fire_in_ms: REVIEWER_TOPIC_LINGER_MS } : {}),
+            event_id: ctx.envelope.event_id,
+          }),
+        );
       })
       .on(TopicUpdated, async (payload, ctx) => {
         if (ctx.envelope.source === ASSESSOR_ID) return;
         if (!(await topicExists(payload.id))) return;
-        await reviewAndPublish(payload.id, ctx, TopicUpdated.event_type);
+        const scheduled = scheduleReview(payload.id, ctx, TopicUpdated.event_type);
+        console.log(
+          JSON.stringify({
+            msg: scheduled ? 'reviewer scheduled' : 'reviewer coalesced',
+            topic_id: payload.id,
+            triggered_by: TopicUpdated.event_type,
+            ...(scheduled ? { fire_in_ms: REVIEWER_TOPIC_LINGER_MS } : {}),
+            event_id: ctx.envelope.event_id,
+          }),
+        );
       })
       .on(TopicActionPlanModificationRequested, async (payload, ctx) => {
         await modifyPlan(
