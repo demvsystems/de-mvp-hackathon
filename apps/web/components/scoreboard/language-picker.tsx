@@ -19,6 +19,10 @@ const labels: Record<Language, { name: string; de: string; en: string }> = {
   },
 };
 
+function setLanguageCookie(nextLanguage: Language): void {
+  window.document.cookie = `${LANGUAGE_COOKIE}=${nextLanguage}; Path=/; Max-Age=31536000; SameSite=Lax`;
+}
+
 export function LanguagePicker({ language }: { language: Language }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -26,7 +30,7 @@ export function LanguagePicker({ language }: { language: Language }) {
 
   function updateLanguage(nextLanguage: Language): void {
     if (nextLanguage === language) return;
-    document.cookie = `${LANGUAGE_COOKIE}=${nextLanguage}; Path=/; Max-Age=31536000; SameSite=Lax`;
+    setLanguageCookie(nextLanguage);
     startTransition(() => {
       router.refresh();
     });
