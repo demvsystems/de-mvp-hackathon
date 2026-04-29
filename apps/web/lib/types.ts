@@ -44,6 +44,7 @@ export type Scoring = {
 
 export type AssessmentReasoning = {
   sentiment_aggregate: string;
+  tldr?: string;
   key_signals: string[];
   key_artifacts: string[];
   additional_notes?: string;
@@ -151,6 +152,7 @@ export type AssessmentHistoryEntry = {
 export type TopicContext = {
   id: string;
   label: string;
+  description: string | null;
   status: 'active' | 'proposed' | 'archived' | 'superseded';
   discovered_at: string;
   discovered_by: string;

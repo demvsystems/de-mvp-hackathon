@@ -68,6 +68,11 @@ export default async function TopicDetailPage({
           </span>
         </div>
         <h1 className="font-heading text-3xl font-semibold tracking-tight">{topic.label}</h1>
+        {topic.description ? (
+          <p className="text-muted-foreground max-w-3xl text-sm leading-relaxed">
+            {topic.description}
+          </p>
+        ) : null}
         <code className="text-muted-foreground/80 font-mono text-xs break-all">{topic.id}</code>
       </header>
 
@@ -116,6 +121,14 @@ export default async function TopicDetailPage({
         <Card>
           <CardContent className="flex flex-col gap-4">
             <h2 className="font-heading text-base font-medium">Reasoning</h2>
+            {reasoning.tldr ? (
+              <div className="bg-muted/50 rounded-lg px-3 py-2">
+                <h3 className="text-muted-foreground mb-1 text-xs tracking-wide uppercase">
+                  TL;DR
+                </h3>
+                <p className="text-sm leading-relaxed">{reasoning.tldr}</p>
+              </div>
+            ) : null}
             <p className="text-sm leading-relaxed">{reasoning.sentiment_aggregate}</p>
 
             <div className="flex flex-col gap-2">

@@ -1,4 +1,4 @@
-import type { ToolCallRecord } from '@repo/agent';
+import type { AgentRunMetadata, PromptResolution, ToolCallRecord } from '@repo/agent';
 import type { AssessmentOutput } from '@repo/agent/reviewer';
 import { criteriaRegistry, type CriterionScore } from './criteria';
 import type { Fixture } from './fixture';
@@ -12,6 +12,7 @@ export interface FixtureReport {
   readonly passed: boolean;
   readonly criteria: CriterionScore[];
   readonly tool_calls: ToolCallRecord[];
+  readonly prompt: PromptResolution | null;
 }
 
 function applies(category: string, criterionApplies: string[] | undefined): boolean {
@@ -24,11 +25,13 @@ export async function scoreFixture(
   output: AssessmentOutput,
   toolCalls: ToolCallRecord[],
   rubric: RubricConfig,
+  metadata?: Pick<AgentRunMetadata, 'prompt'>,
 ): Promise<FixtureReport> {
   const trace = startFixtureTrace({
     fixtureId: fixture.id,
     category: fixture.category,
     rubricVersion: rubric.version,
+    ...(metadata?.prompt ? { prompt: metadata.prompt } : {}),
   });
   trace.setOutput({ assessment: output, tool_calls: toolCalls });
 
@@ -68,5 +71,6 @@ export async function scoreFixture(
     passed,
     criteria: scores,
     tool_calls: toolCalls,
+    prompt: metadata?.prompt ?? null,
   };
 }

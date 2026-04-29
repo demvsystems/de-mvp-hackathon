@@ -5,6 +5,7 @@ import {
   getDefaultLangfuseClient,
   shutdownLangfuse as shutdownSharedLangfuse,
 } from '@repo/agent';
+import type { PromptResolution } from '@repo/agent';
 import { type LangfuseEvaluator, startObservation } from '@langfuse/tracing';
 import type { CriterionScore } from './criteria';
 
@@ -16,6 +17,7 @@ export interface FixtureTraceInput {
   readonly fixtureId: string;
   readonly category: string;
   readonly rubricVersion: string;
+  readonly prompt?: PromptResolution;
 }
 
 export interface FixtureTraceHandle {
@@ -39,17 +41,27 @@ export function startFixtureTrace(input: FixtureTraceInput): FixtureTraceHandle 
     'eval.fixture',
     {
       input: { fixtureId: input.fixtureId, category: input.category },
-      metadata: { rubricVersion: input.rubricVersion },
+      metadata: {
+        rubricVersion: input.rubricVersion,
+        ...(input.prompt ? { prompt: input.prompt } : {}),
+      },
     },
     { asType: 'evaluator' },
   );
   applyLangfuseTraceContext(trace, {
     traceName: 'eval.fixture',
-    tags: ['eval', `category:${input.category}`],
+    tags: [
+      'eval',
+      `category:${input.category}`,
+      ...(input.prompt?.version !== null && input.prompt?.version !== undefined
+        ? [`prompt-version:${input.prompt.version}`]
+        : []),
+    ],
     metadata: {
       fixture_id: input.fixtureId,
       category: input.category,
       rubric_version: input.rubricVersion,
+      ...(input.prompt ? { prompt: input.prompt } : {}),
     },
   });
   trace.setTraceIO({ input: { fixtureId: input.fixtureId, category: input.category } });

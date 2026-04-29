@@ -197,6 +197,32 @@ export const guardrailEvents = pgTable(
   ],
 );
 
+export const goldenExampleCandidates = pgTable(
+  'golden_example_candidates',
+  {
+    id: bigserial('id', { mode: 'bigint' }).primaryKey(),
+    feedbackId: text('feedback_id').notNull(),
+    topicId: text('topic_id').notNull(),
+    assessor: text('assessor').notNull(),
+    assessedAt: timestamp('assessed_at', { withTimezone: true }).notNull(),
+    traceId: text('trace_id'),
+    category: text('category').notNull().default('edge'),
+    reason: text('reason').notNull(),
+    note: text('note'),
+    payload: jsonb('payload').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    status: text('status').notNull().default('open'),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  },
+  (t) => [
+    unique('golden_example_candidates_feedback_uniq').on(t.feedbackId),
+    index('golden_example_candidates_topic').on(t.topicId, t.createdAt.desc()),
+    index('golden_example_candidates_open')
+      .on(t.status, t.createdAt.desc())
+      .where(sql`status = 'open'`),
+  ],
+);
+
 export const reviewerSessions = pgTable(
   'reviewer_sessions',
   {

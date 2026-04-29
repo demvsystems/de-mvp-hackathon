@@ -34,6 +34,10 @@ export type GuardedEvidenceRecord<T extends EvidenceRecordShape> = T & {
 };
 
 export interface AssessmentLike {
+  topic: {
+    label: string;
+    description: string;
+  };
   character: AssessmentCharacterValue;
   escalation_score: number;
   summary: {
@@ -41,6 +45,7 @@ export interface AssessmentLike {
     covers_record_ids: string[];
   };
   reasoning: {
+    tldr?: string | undefined;
     key_signals: string[];
     key_artifacts: string[];
     additional_notes?: string | undefined;
@@ -88,6 +93,8 @@ const SECRET_PATTERNS = [
 ];
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 const PHONE_PATTERN = /(?:\+?\d[\d\s()./-]{7,}\d)/;
+const PHONE_PATTERN_GLOBAL = /(?:\+?\d[\d\s()./-]{7,}\d)/g;
+const SLACK_TS_LIKE_ID = /^\d{9,13}\.\d{6}$/;
 const URGENCY_TERMS = [
   'dringend',
   'kritisch',
@@ -141,6 +148,17 @@ function urgencyCount(text: string): number {
   );
 }
 
+function hasPhoneLikePII(text: string): boolean {
+  for (const match of text.matchAll(PHONE_PATTERN_GLOBAL)) {
+    const candidate = match[0].trim();
+    // Slack record timestamps look phone-like to the broad regex but are
+    // machine IDs, not user PII.
+    if (SLACK_TS_LIKE_ID.test(candidate)) continue;
+    return true;
+  }
+  return false;
+}
+
 export function detectGuardrailFlags(text: string): GuardrailFlag[] {
   if (text.trim().length === 0) return [];
 
@@ -151,7 +169,7 @@ export function detectGuardrailFlags(text: string): GuardrailFlag[] {
   if (ENCODED_INJECTION.test(text)) pushFlag(flags, 'encoded_injection');
   if (urgencyCount(text) >= 3) pushFlag(flags, 'urgency_spam');
   if (SECRET_PATTERNS.some((pattern) => pattern.test(text))) pushFlag(flags, 'secret_like');
-  if (EMAIL_PATTERN.test(text) || PHONE_PATTERN.test(text)) pushFlag(flags, 'pii_like');
+  if (EMAIL_PATTERN.test(text) || hasPhoneLikePII(text)) pushFlag(flags, 'pii_like');
   return flags;
 }
 
@@ -223,6 +241,10 @@ export function collectActionPlanRecordIds(plan: ActionPlan | null): string[] {
 
 function cloneAssessment(output: AssessmentLike): AssessmentLike {
   return {
+    topic: {
+      label: output.topic.label,
+      description: output.topic.description,
+    },
     character: output.character,
     escalation_score: output.escalation_score,
     summary: {
@@ -230,6 +252,7 @@ function cloneAssessment(output: AssessmentLike): AssessmentLike {
       covers_record_ids: [...output.summary.covers_record_ids],
     },
     reasoning: {
+      ...(output.reasoning.tldr !== undefined ? { tldr: output.reasoning.tldr } : {}),
       key_signals: [...output.reasoning.key_signals],
       key_artifacts: [...output.reasoning.key_artifacts],
       ...(output.reasoning.additional_notes !== undefined
@@ -270,7 +293,10 @@ function extractAssessmentText(output: AssessmentLike): string {
         ].join('\n');
 
   return [
+    output.topic.label,
+    output.topic.description,
     output.summary.text,
+    output.reasoning.tldr ?? '',
     output.reasoning.key_signals.join('\n'),
     output.reasoning.additional_notes ?? '',
     planText,

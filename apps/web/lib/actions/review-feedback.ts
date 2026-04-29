@@ -45,3 +45,19 @@ export async function setGuardrailEventStatus(
   revalidatePath('/admin/reviews');
   return { ok: true };
 }
+
+export async function setGoldenCandidateStatus(
+  raw: z.input<typeof ReviewInput>,
+): Promise<ReviewFeedbackResult> {
+  const parsed = ReviewInput.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues.map((i) => i.message).join('; ') };
+  }
+  await sql`
+    UPDATE golden_example_candidates
+       SET status = ${parsed.data.status}, reviewed_at = NOW()
+     WHERE id = ${parsed.data.id}::bigint
+  `;
+  revalidatePath('/admin/reviews');
+  return { ok: true };
+}

@@ -4,6 +4,7 @@ export {
   AssessmentOutput,
   AssessmentReasoning,
   AssessmentSummary,
+  AssessmentTopic,
   ASSESSOR_ID,
   fallbackAssessment,
   type ReviewerInput,

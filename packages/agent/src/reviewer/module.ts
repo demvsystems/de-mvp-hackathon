@@ -199,6 +199,9 @@ async function persistAssessmentAndPlan(args: {
         )
       : guarded.sanitized;
 
+  const shouldPublishTopicMetadata =
+    result.metadata.fallback_reason === null && guarded.decision !== 'block';
+
   await persistGuardrailEvents({
     topicId,
     assessedAt,
@@ -217,6 +220,23 @@ async function persistAssessmentAndPlan(args: {
     .returning({ id: schema.reviewerSessions.id });
   const sessionId = sessionRow[0]!.id;
 
+  if (shouldPublishTopicMetadata) {
+    await publishWithPersist(TopicUpdated, {
+      source: ASSESSOR_ID,
+      occurred_at: assessedAt,
+      subject_id: topicId,
+      causation_id: causationEventId,
+      correlation_id: topicId,
+      payload: {
+        id: topicId,
+        label: finalOutput.topic.label,
+        description: finalOutput.topic.description,
+        centroid: null,
+        member_count: null,
+      },
+    });
+  }
+
   // publishWithPersist writes the `topic_assessments` row before publishing,
   // so any subscriber that sees the event also sees the row.
   const assessmentAck = await publishWithPersist(TopicAssessmentCreated, {
@@ -233,6 +253,7 @@ async function persistAssessmentAndPlan(args: {
       escalation_score: finalOutput.escalation_score,
       reasoning: {
         summary: finalOutput.summary,
+        ...(finalOutput.reasoning.tldr !== undefined ? { tldr: finalOutput.reasoning.tldr } : {}),
         key_signals: finalOutput.reasoning.key_signals,
         key_artifacts: finalOutput.reasoning.key_artifacts,
         ...(finalOutput.reasoning.additional_notes !== undefined
@@ -457,6 +478,7 @@ export const agentReviewerModule: {
         await reviewAndPublish(payload.id, ctx, TopicCreated.event_type);
       })
       .on(TopicUpdated, async (payload, ctx) => {
+        if (ctx.envelope.source === ASSESSOR_ID) return;
         if (!(await topicExists(payload.id))) return;
         await reviewAndPublish(payload.id, ctx, TopicUpdated.event_type);
       })

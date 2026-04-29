@@ -143,19 +143,27 @@ function toMember(r: {
 
 function asReasoning(value: unknown): AssessmentReasoning {
   const obj = (value ?? {}) as Record<string, unknown>;
-  // Reviewer publishes `summary`; legacy fixtures used `sentiment_aggregate`.
-  // Bridge both into the UI's `sentiment_aggregate` slot.
+  const summaryObj =
+    obj['summary'] && typeof obj['summary'] === 'object'
+      ? (obj['summary'] as Record<string, unknown>)
+      : null;
+  // Reviewer publishes `summary` as an object; legacy fixtures used a raw
+  // `sentiment_aggregate` string. Bridge both into the UI summary slot.
   const summary =
-    typeof obj['summary'] === 'string'
-      ? (obj['summary'] as string)
-      : typeof obj['sentiment_aggregate'] === 'string'
-        ? (obj['sentiment_aggregate'] as string)
-        : '';
+    typeof summaryObj?.['text'] === 'string'
+      ? (summaryObj['text'] as string)
+      : typeof obj['summary'] === 'string'
+        ? (obj['summary'] as string)
+        : typeof obj['sentiment_aggregate'] === 'string'
+          ? (obj['sentiment_aggregate'] as string)
+          : '';
+  const tldr = typeof obj['tldr'] === 'string' ? obj['tldr'] : undefined;
   const signals = Array.isArray(obj['key_signals']) ? (obj['key_signals'] as string[]) : [];
   const artifacts = Array.isArray(obj['key_artifacts']) ? (obj['key_artifacts'] as string[]) : [];
   const notes = typeof obj['additional_notes'] === 'string' ? obj['additional_notes'] : undefined;
   return {
     sentiment_aggregate: summary,
+    ...(tldr !== undefined ? { tldr } : {}),
     key_signals: signals,
     key_artifacts: artifacts,
     ...(notes !== undefined ? { additional_notes: notes } : {}),
@@ -173,7 +181,7 @@ export async function getScoreboard(): Promise<TriageTopic[]> {
       id: topic.id,
       type: 'topic',
       title: topic.label ?? topic.id,
-      snippet: reasoning.sentiment_aggregate || (topic.description ?? null),
+      snippet: (reasoning.tldr ?? reasoning.sentiment_aggregate) || (topic.description ?? null),
       source: 'topic',
       scoring: {
         score: latest.escalationScore,
@@ -215,6 +223,7 @@ export async function getTopic(id: string): Promise<TopicContext | null> {
   return {
     id: topic.id,
     label: topic.label ?? topic.id,
+    description: topic.description ?? null,
     status: (topic.status as TopicContext['status']) ?? 'active',
     discovered_at: topic.discoveredAt.toISOString(),
     discovered_by: topic.discoveredBy,
@@ -246,7 +255,7 @@ export async function getTopic(id: string): Promise<TopicContext | null> {
         assessed_at: a.assessedAt.toISOString(),
         character: asCharacter(a.character),
         escalation_score: a.escalationScore,
-        brief_reasoning: r.sentiment_aggregate.slice(0, 240),
+        brief_reasoning: (r.tldr ?? r.sentiment_aggregate).slice(0, 240),
       };
     }),
   };

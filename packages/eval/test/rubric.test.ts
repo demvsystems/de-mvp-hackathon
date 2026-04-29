@@ -11,7 +11,12 @@ import {
   type Fixture,
 } from '../src';
 import { adversarialResistance } from '../src/criteria/adversarial-resistance';
+import { artifactValidity } from '../src/criteria/artifact-validity';
 import { characterMatch } from '../src/criteria/character-match';
+import { coverage } from '../src/criteria/coverage';
+import { escalationProximity } from '../src/criteria/escalation-proximity';
+import { signalQuality } from '../src/criteria/signal-quality';
+import { summaryFaithfulness } from '../src/criteria/summary-faithfulness';
 import { toolSelection } from '../src/criteria/tool-selection';
 
 const REPO_ROOT = resolve(__dirname, '../../..');
@@ -95,6 +100,156 @@ describe('rubric scaffolding', () => {
     expect(noneCalled.score).toBe(0);
   });
 
+  it('escalation_proximity returns 1 inside threshold and decays outside it', async () => {
+    const fixtures = await loadFixtures(GOLDEN_DIR);
+    const happy = fixtures.find((f) => f.id === 'happy-bipro-attention') as Fixture;
+    const cfg = {
+      id: 'escalation_proximity',
+      kind: 'code' as const,
+      weight: 0.1,
+      threshold: 0.2,
+    };
+
+    const near = await escalationProximity({
+      fixture: happy,
+      output: stubOutput('attention', { escalation_score: happy.expected.escalation_score + 0.1 }),
+      toolCalls: [],
+      config: cfg,
+    });
+    expect(near.score).toBe(1);
+
+    const far = await escalationProximity({
+      fixture: happy,
+      output: stubOutput('attention', { escalation_score: 0 }),
+      toolCalls: [],
+      config: cfg,
+    });
+    expect(far.score).toBeGreaterThanOrEqual(0);
+    expect(far.score).toBeLessThan(1);
+  });
+
+  it('coverage scores expected anchor coverage', async () => {
+    const fixtures = await loadFixtures(GOLDEN_DIR);
+    const happy = fixtures.find((f) => f.id === 'happy-bipro-attention') as Fixture;
+    const expected = happy.expected.anchor_record_ids;
+    const cfg = { id: 'coverage', kind: 'code' as const, weight: 0.15 };
+
+    const hit = await coverage({
+      fixture: happy,
+      output: stubOutput('attention', {
+        summary: { text: 'stub', covers_record_ids: expected },
+      }),
+      toolCalls: [],
+      config: cfg,
+    });
+    expect(hit.score).toBe(1);
+
+    const miss = await coverage({
+      fixture: happy,
+      output: stubOutput('attention', {
+        summary: { text: 'stub', covers_record_ids: expected.slice(0, 1) },
+      }),
+      toolCalls: [],
+      config: cfg,
+    });
+    expect(miss.score).toBeLessThan(1);
+  });
+
+  it('artifact_validity penalizes unknown artifact ids', async () => {
+    const fixtures = await loadFixtures(GOLDEN_DIR);
+    const happy = fixtures.find((f) => f.id === 'happy-bipro-attention') as Fixture;
+    const cfg = { id: 'artifact_validity', kind: 'code' as const, weight: 0.1 };
+
+    const valid = await artifactValidity({
+      fixture: happy,
+      output: stubOutput('attention', {
+        reasoning: {
+          key_signals: ['stub'],
+          key_artifacts: [happy.records[0]!.id],
+        },
+      }),
+      toolCalls: [],
+      config: cfg,
+    });
+    expect(valid.score).toBe(1);
+
+    const invalid = await artifactValidity({
+      fixture: happy,
+      output: stubOutput('attention', {
+        reasoning: {
+          key_signals: ['stub'],
+          key_artifacts: [happy.records[0]!.id, 'record:missing'],
+        },
+      }),
+      toolCalls: [],
+      config: cfg,
+    });
+    expect(invalid.score).toBeLessThan(1);
+  });
+
+  it('signal_quality uses heuristic scoring when llm judge is disabled', async () => {
+    const fixtures = await loadFixtures(GOLDEN_DIR);
+    const happy = fixtures.find((f) => f.id === 'happy-bipro-attention') as Fixture;
+    const cfg = { id: 'signal_quality', kind: 'llm' as const, weight: 0.15 };
+
+    const strong = await signalQuality({
+      fixture: happy,
+      output: stubOutput('attention', {
+        reasoning: {
+          key_signals: [...happy.expected.expected_signals],
+          key_artifacts: [],
+        },
+      }),
+      toolCalls: [],
+      config: cfg,
+    });
+    expect(strong.score).toBeGreaterThan(0.9);
+
+    const weak = await signalQuality({
+      fixture: happy,
+      output: stubOutput('attention', {
+        reasoning: {
+          key_signals: ['unrelated cafeteria chatter', 'nothing about the issue'],
+          key_artifacts: [],
+        },
+      }),
+      toolCalls: [],
+      config: cfg,
+    });
+    expect(weak.score).toBeLessThan(strong.score);
+  });
+
+  it('summary_faithfulness uses heuristic support when llm judge is disabled', async () => {
+    const fixtures = await loadFixtures(GOLDEN_DIR);
+    const happy = fixtures.find((f) => f.id === 'happy-bipro-attention') as Fixture;
+    const cfg = { id: 'summary_faithfulness', kind: 'llm' as const, weight: 0.15 };
+
+    const supportedText = happy.records
+      .slice(0, 2)
+      .map((record) => record.body ?? record.title ?? '')
+      .join(' ');
+
+    const strong = await summaryFaithfulness({
+      fixture: happy,
+      output: stubOutput('attention', {
+        summary: { text: supportedText, covers_record_ids: [] },
+      }),
+      toolCalls: [],
+      config: cfg,
+    });
+    expect(strong.score).toBeGreaterThan(0.8);
+
+    const weak = await summaryFaithfulness({
+      fixture: happy,
+      output: stubOutput('attention', {
+        summary: { text: 'office snacks and holiday calendar only', covers_record_ids: [] },
+      }),
+      toolCalls: [],
+      config: cfg,
+    });
+    expect(weak.score).toBeLessThan(strong.score);
+  });
+
   it('adversarial_resistance passes when output ignores injected directives', async () => {
     const fixtures = await loadFixtures(GOLDEN_DIR);
     const adversarial = fixtures.find((f) => f.id === 'adversarial-prompt-injection') as Fixture;
@@ -175,12 +330,25 @@ describe.skipIf(!liveDeps)('rubric end-to-end (live deps)', () => {
   });
 });
 
-function stubOutput(character: 'attention' | 'opportunity' | 'noteworthy' | 'calm') {
+function stubOutput(
+  character: 'attention' | 'opportunity' | 'noteworthy' | 'calm',
+  overrides?: Partial<Fixture['expected']> & {
+    topic?: { label: string; description: string };
+    summary?: { text: string; covers_record_ids: string[] };
+    reasoning?: { tldr?: string; key_signals: string[]; key_artifacts: string[] };
+    escalation_score?: number;
+  },
+) {
   return {
+    topic: overrides?.topic ?? { label: 'stub topic', description: 'stub description' },
     character,
-    escalation_score: 0.5,
-    summary: { text: 'stub', covers_record_ids: [] as string[] },
-    reasoning: { key_signals: ['stub'], key_artifacts: [] as string[] },
+    escalation_score: overrides?.escalation_score ?? 0.5,
+    summary: overrides?.summary ?? { text: 'stub', covers_record_ids: [] as string[] },
+    reasoning: overrides?.reasoning ?? {
+      tldr: 'stub',
+      key_signals: ['stub'],
+      key_artifacts: [] as string[],
+    },
     recommended_action_plan: null,
   };
 }

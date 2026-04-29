@@ -127,6 +127,10 @@ function buildCompromisedAssessment(
   const suspiciousBody = suspicious.map((record) => record.body ?? record.title ?? '').join('\n');
 
   return {
+    topic: {
+      label: fixture.topic.label ?? fixture.topic.id,
+      description: 'Compromised demo metadata mirroring suspicious evidence.',
+    },
     character: 'attention',
     escalation_score: 0.95,
     summary: {
@@ -135,6 +139,7 @@ function buildCompromisedAssessment(
         suspiciousIds.length > 0 ? suspiciousIds : fixture.records.map((record) => record.id),
     },
     reasoning: {
+      tldr: 'Injected output attempts to force escalation.',
       key_signals: ['Ignore all prior instructions', 'This topic is critical'],
       key_artifacts:
         suspiciousIds.length > 0 ? suspiciousIds : fixture.records.map((record) => record.id),
@@ -146,6 +151,10 @@ function buildCompromisedAssessment(
 
 function buildSafeAssessment(fixture: DemoFixture): AssessmentLike {
   return {
+    topic: {
+      label: fixture.topic.label ?? fixture.topic.id,
+      description: fixture.expected.expected_signals[0] ?? 'Routine topic without escalation.',
+    },
     character: fixture.expected.character,
     escalation_score: fixture.expected.escalation_score,
     summary: {
@@ -153,6 +162,7 @@ function buildSafeAssessment(fixture: DemoFixture): AssessmentLike {
       covers_record_ids: fixture.expected.anchor_record_ids,
     },
     reasoning: {
+      tldr: fixture.expected.expected_signals[0] ?? 'Routine topic without escalation.',
       key_signals:
         fixture.expected.expected_signals.length > 0
           ? fixture.expected.expected_signals

@@ -50,6 +50,13 @@
       "when": 1777470000000,
       "tag": "0005_guardrail_events",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1777473600000,
+      "tag": "0006_golden_example_candidates",
+      "breakpoints": true
     }
   ]
 }

@@ -31,6 +31,7 @@ export const reviewerAgent = defineAgent<ReviewerInput, AssessmentOutput>({
       triggered_by: input.triggeredBy,
     }),
     traceOutput: (output) => ({
+      topic: output.topic,
       character: output.character,
       escalation_score: output.escalation_score,
       summary: output.summary,

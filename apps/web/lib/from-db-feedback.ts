@@ -35,6 +35,20 @@ export interface OpenGuardrailEvent {
   record_ids: string[];
 }
 
+export interface OpenGoldenCandidate {
+  id: string;
+  feedback_id: string;
+  topic_id: string;
+  topic_label: string | null;
+  assessor: string;
+  assessed_at: string;
+  trace_id: string | null;
+  category: string;
+  reason: string;
+  note: string | null;
+  created_at: string;
+}
+
 interface OpenFeedbackRow {
   id: string;
   topic_id: string;
@@ -66,6 +80,20 @@ interface OpenGuardrailEventRow {
   decision: string;
   detail: string;
   record_ids: unknown;
+}
+
+interface OpenGoldenCandidateRow {
+  id: string;
+  feedback_id: string;
+  topic_id: string;
+  topic_label: string | null;
+  assessor: string;
+  assessed_at: Date | string;
+  trace_id: string | null;
+  category: string;
+  reason: string;
+  note: string | null;
+  created_at: Date | string;
 }
 
 function asThumb(value: string | null): 'up' | 'down' | null {
@@ -178,5 +206,40 @@ export async function listOpenGuardrailEvents(): Promise<OpenGuardrailEvent[]> {
     decision: asDecision(row.decision),
     detail: row.detail,
     record_ids: asStringArray(row.record_ids),
+  }));
+}
+
+export async function listOpenGoldenCandidates(): Promise<OpenGoldenCandidate[]> {
+  const rows = await sql<OpenGoldenCandidateRow[]>`
+    SELECT c.id::text      AS id,
+           c.feedback_id   AS feedback_id,
+           c.topic_id      AS topic_id,
+           t.label         AS topic_label,
+           c.assessor      AS assessor,
+           c.assessed_at   AS assessed_at,
+           c.trace_id      AS trace_id,
+           c.category      AS category,
+           c.reason        AS reason,
+           c.note          AS note,
+           c.created_at    AS created_at
+      FROM golden_example_candidates c
+      LEFT JOIN topics t ON t.id = c.topic_id
+     WHERE c.status = 'open'
+     ORDER BY c.created_at DESC
+     LIMIT 200
+  `;
+
+  return rows.map((row) => ({
+    id: row.id,
+    feedback_id: row.feedback_id,
+    topic_id: row.topic_id,
+    topic_label: row.topic_label,
+    assessor: row.assessor,
+    assessed_at: toIso(row.assessed_at),
+    trace_id: row.trace_id,
+    category: row.category,
+    reason: row.reason,
+    note: row.note,
+    created_at: toIso(row.created_at),
   }));
 }
